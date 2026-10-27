@@ -13,12 +13,13 @@ import {
   Plus,
   ShieldCheck,
   Clock,
-  User,
+  Settings,
   BellOff,
   MoreVertical,
 } from 'lucide-react-native';
 import { useAlarmStore } from '../store/alarm-store';
 import { AlarmCard } from '../components/alarm/AlarmCard';
+import { formatDisplayTime } from '../domain/time-format';
 import { colors, spacing, radii, typography, shadows, iconSizes } from '../theme/tokens';
 import { getNextTriggerDate } from '../domain/next-trigger';
 import * as Haptics from 'expo-haptics';
@@ -28,28 +29,39 @@ const DAYS_HEADER = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 export default function AlarmListScreen() {
   const alarms = useAlarmStore((state) => state.alarms);
   const toggleAlarm = useAlarmStore((state) => state.toggleAlarm);
+  const timeFormat = useAlarmStore((state) => state.timeFormat);
 
-  // Live system time for hero clock
+  // Live system time for hero clock respecting 12h / 24h format
   const [currentTime, setCurrentTime] = useState(() => {
     const d = new Date();
     const h = d.getHours();
     const m = d.getMinutes().toString().padStart(2, '0');
+    if (timeFormat === '24h') {
+      return { time: `${h.toString().padStart(2, '0')}:${m}`, ampm: '' };
+    }
     const ampm = h >= 12 ? 'PM' : 'AM';
     const displayH = h % 12 === 0 ? 12 : h % 12;
     return { time: `${displayH}:${m}`, ampm };
   });
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const update = () => {
       const d = new Date();
       const h = d.getHours();
       const m = d.getMinutes().toString().padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const displayH = h % 12 === 0 ? 12 : h % 12;
-      setCurrentTime({ time: `${displayH}:${m}`, ampm });
-    }, 1000);
+      if (timeFormat === '24h') {
+        setCurrentTime({ time: `${h.toString().padStart(2, '0')}:${m}`, ampm: '' });
+      } else {
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const displayH = h % 12 === 0 ? 12 : h % 12;
+        setCurrentTime({ time: `${displayH}:${m}`, ampm });
+      }
+    };
+
+    update();
+    const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [timeFormat]);
 
   // Find next upcoming alarm among enabled ones
   const nextAlarm = React.useMemo(() => {
@@ -102,7 +114,7 @@ export default function AlarmListScreen() {
             style={styles.iconCircleButton}
             onPress={handleOpenPermissions}
             activeOpacity={0.7}
-            accessibilityLabel="Reliability Settings"
+            accessibilityLabel="Settings"
           >
             <Sliders size={iconSizes.md} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -122,13 +134,15 @@ export default function AlarmListScreen() {
         <View style={styles.heroClockContainer}>
           <Text style={styles.locationSubtitle}>
             {nextAlarm
-              ? `Next: ${nextAlarm.alarm.time} · ${nextAlarm.alarm.label || 'Alarm'}`
+              ? `Next: ${formatDisplayTime(nextAlarm.alarm.time, timeFormat).formatted} · ${nextAlarm.alarm.label || 'Alarm'}`
               : 'Local Time · Smart Wake-Up'}
           </Text>
 
           <View style={styles.clockRow}>
             <Text style={styles.clockDigits}>{currentTime.time}</Text>
-            <Text style={styles.ampmText}>{currentTime.ampm}</Text>
+            {currentTime.ampm ? (
+              <Text style={styles.ampmText}>{currentTime.ampm}</Text>
+            ) : null}
           </View>
 
           <Text style={styles.repeatLabel}>Repeat</Text>
@@ -227,17 +241,20 @@ export default function AlarmListScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Floating Bottom Navigation Tab Dock (Inspiration 1 & 2 Match) */}
+        {/* Floating Bottom Navigation Tab Dock (Inspiration Match with Settings Icon on Left) */}
         <View style={styles.bottomDockWrapper} pointerEvents="box-none">
           <View style={styles.dock}>
+            {/* Left Icon: Proper Settings Icon */}
             <TouchableOpacity
+              testID="bottom-nav-settings-btn"
               style={styles.dockButton}
-              onPress={handleOpenGallery}
-              accessibilityLabel="Component Gallery & Profile"
+              onPress={handleOpenPermissions}
+              accessibilityLabel="Settings"
             >
-              <User size={iconSizes.md} color={colors.textSecondary} />
+              <Settings size={iconSizes.md} color={colors.textSecondary} />
             </TouchableOpacity>
 
+            {/* Center: Glowing Aurora Lime Clock Pill */}
             <TouchableOpacity
               style={styles.dockCenterPill}
               onPress={() => {}}
@@ -246,10 +263,11 @@ export default function AlarmListScreen() {
               <Clock size={iconSizes.md} color={colors.textInverse} strokeWidth={2.5} />
             </TouchableOpacity>
 
+            {/* Right: Gallery & Tools */}
             <TouchableOpacity
               style={styles.dockButton}
-              onPress={handleOpenPermissions}
-              accessibilityLabel="System Permissions & Settings"
+              onPress={handleOpenGallery}
+              accessibilityLabel="Component Design Gallery"
             >
               <ShieldCheck size={iconSizes.md} color={colors.textSecondary} />
             </TouchableOpacity>

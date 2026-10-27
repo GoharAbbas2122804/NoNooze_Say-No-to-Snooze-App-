@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { Alarm } from '../../domain/types';
 import { DISMISSAL_METHODS } from '../../domain/dismissal-registry';
+import { formatDisplayTime } from '../../domain/time-format';
+import { useAlarmStore } from '../../store/alarm-store';
 import { colors, spacing, radii, typography, shadows } from '../../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
@@ -18,6 +20,9 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
   onPress,
   onToggle,
 }) => {
+  const timeFormat = useAlarmStore((state) => state.timeFormat);
+  const display = formatDisplayTime(alarm.time, timeFormat);
+
   const getDaysSummary = (): string => {
     if (!alarm.days || alarm.days.length === 0) return 'Once';
     if (alarm.days.length === 7) return 'Every day';
@@ -51,18 +56,30 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
       onPress={onPress}
       activeOpacity={0.8}
       accessibilityRole="button"
-      accessibilityLabel={`Alarm for ${alarm.time}, ${alarm.label || 'Alarm'}`}
+      accessibilityLabel={`Alarm for ${display.formatted}, ${alarm.label || 'Alarm'}`}
     >
       <View style={styles.topRow}>
         <View style={styles.timeContainer}>
-          <Text
-            style={[
-              styles.timeText,
-              !alarm.enabled && styles.timeTextDisabled,
-            ]}
-          >
-            {alarm.time}
-          </Text>
+          <View style={styles.timeRow}>
+            <Text
+              style={[
+                styles.timeText,
+                !alarm.enabled && styles.timeTextDisabled,
+              ]}
+            >
+              {display.time}
+            </Text>
+            {display.ampm && (
+              <Text
+                style={[
+                  styles.ampmBadgeText,
+                  !alarm.enabled && styles.ampmBadgeTextDisabled,
+                ]}
+              >
+                {display.ampm}
+              </Text>
+            )}
+          </View>
           <Text
             style={[
               styles.repeatText,
@@ -79,7 +96,7 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
           onValueChange={handleToggle}
           trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
           thumbColor={colors.switchThumb}
-          accessibilityLabel={`Toggle alarm for ${alarm.time}`}
+          accessibilityLabel={`Toggle alarm for ${display.formatted}`}
         />
       </View>
 
@@ -145,6 +162,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeContainer: {
+    gap: 2,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     gap: spacing.xs,
   },
   timeText: {
@@ -154,6 +176,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   timeTextDisabled: {
+    color: colors.textMuted,
+  },
+  ampmBadgeText: {
+    color: colors.primary,
+    fontSize: typography.sizes.bodySmall,
+    fontWeight: typography.weights.bold,
+    letterSpacing: 0.5,
+  },
+  ampmBadgeTextDisabled: {
     color: colors.textMuted,
   },
   repeatText: {

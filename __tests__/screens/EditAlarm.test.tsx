@@ -55,4 +55,32 @@ describe('EditAlarmScreen', () => {
     expect(alarms[0].label).toBe('Morning Alarm');
     expect(router.back).toHaveBeenCalled();
   });
+
+  it('allows toggling between AM and PM in 12-hour mode and saves canonical 24h time', async () => {
+    const user = userEvent.setup();
+    useAlarmStore.setState({ timeFormat: '12h' });
+
+    await render(<EditAlarmScreen />);
+
+    // Period buttons should be visible
+    expect(screen.getByTestId('period-am')).toBeTruthy();
+    expect(screen.getByTestId('period-pm')).toBeTruthy();
+
+    // Switch to PM (07:00 PM -> 19:00 canonical)
+    await user.press(screen.getByTestId('period-pm'));
+    await user.press(screen.getByTestId('save-alarm-button'));
+
+    const { alarms } = useAlarmStore.getState();
+    expect(alarms).toHaveLength(1);
+    expect(alarms[0].time).toBe('19:00');
+  });
+
+  it('hides AM/PM selector when 24h format is active', async () => {
+    useAlarmStore.setState({ timeFormat: '24h' });
+
+    await render(<EditAlarmScreen />);
+
+    expect(screen.queryByTestId('period-am')).toBeNull();
+    expect(screen.queryByTestId('period-pm')).toBeNull();
+  });
 });

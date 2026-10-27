@@ -50,33 +50,43 @@
 
 ---
 
-## Iteration 3: Full Settings Page Conversion
+## Iteration 3: Settings Page, 12h/24h Time Format & Navigation Icon
 - **Date**: 2026-10-27
-- **Target**: Settings Screen (`src/app/permissions.tsx`).
+- **Target**: Settings Screen (`src/app/permissions.tsx`), Alarm Editor (`src/app/edit.tsx`), Home Screen (`src/app/index.tsx`), `AlarmCard.tsx`, Store (`src/store/alarm-store.ts`), Domain (`src/domain/time-format.ts`).
 - **Changes Implemented**:
-  1. Converted raw permissions checklist into a complete mobile Settings interface.
-  2. Top Navigation: Frosted circular back button, "Settings" title with "Preferences & Reliability" subtitle.
-  3. Reliability & Permissions Group: System status banner (Success / Warning) with individual setting rows for Notifications, Exact Alarms, Full-Screen Wakeup, and Battery Optimization.
-  4. Sound & Wake-Up Group (Inspiration 2 Match): "Alarm Sound" preview ("Melodian"), neon lime interactive volume track slider with white thumb, Gentle Wake-Up crescendo toggle (volume ramp over 30s), and Vibrate on Ring toggle.
-  5. Anti-Snooze Protocol: Locked challenge mode card highlighting no-snooze enforcement.
-  6. Developer & About Group: Component design gallery deep link and version diagnostics.
-  7. Maintained 100% backwards compatibility with existing testIDs (`enable-notifications-btn`, `enable-exact-alarms-btn`, `enable-battery-opt-btn`, `permissions-continue-btn`).
+  1. **12h / 24h Time Format Preference**:
+     - Added `timeFormat: '12h' | '24h'` and `setTimeFormat` action to `useAlarmStore` with `AsyncStorage` persistence.
+     - Built pure domain utility in `src/domain/time-format.ts` (`parseTo12Hour`, `formatTo24Hour`, `formatDisplayTime`) with 100% unit test coverage.
+  2. **12-Hour Alarm Setting with AM / PM Selectors**:
+     - In `src/app/edit.tsx`, hours stepper wraps 1–12 when in 12h mode (0–23 in 24h mode).
+     - Added glowing segmented AM / PM selector pills next to the minutes column.
+     - Under the hood, canonical 24-hour `'HH:mm'` format is preserved to guarantee seamless compatibility with domain validation and OS alarm schedulers.
+  3. **Settings Page Format Switcher**:
+     - Added prominent "TIME & CLOCK DISPLAY" section in `src/app/permissions.tsx` featuring glowing segmented control pills `[ 12-Hour (AM / PM) ]` and `[ 24-Hour (24h) ]`.
+     - Toggling format immediately updates the entire app: Home hero clock, Alarm cards, and Alarm editor.
+  4. **Proper Bottom Navigation Settings Icon**:
+     - Replaced the user icon in the left slot of the floating bottom dock (`src/app/index.tsx`) with a Lucide `Settings` cog icon (`testID="bottom-nav-settings-btn"`).
+     - Routes directly to `/permissions` (the comprehensive Settings page).
+  5. **Sound, Volume & Reliability in Settings**:
+     - Retained full permission checklist for Android Doze/battery exemptions.
+     - Integrated Inspiration 2 neon lime volume slider, Gentle Wake-Up crescendo toggle, and unskippable anti-snooze protocol card.
 
-### Scorecard (Settings Page)
+### Scorecard (Settings Page & 12h/24h Time Support)
 | Criterion | Target | Iteration 3 Score | Notes |
 |---|---|---|---|
-| 1. Fidelity to inspirations' mood | ≥ 8.0 | **9.5 / 10** | Inspiration 2 sound slider & grouped dark card styling |
-| 2. Visual hierarchy | ≥ 8.0 | **9.5 / 10** | Top bar → Overview banner → Reliability → Sound → Anti-snooze → Tools |
-| 3. Typography | ≥ 8.0 | **9.0 / 10** | Clear section headers, crisp setting titles, descriptive captions |
-| 4. Color & contrast | ≥ 8.0 | **10.0 / 10** | AAA text contrast on OLED background, high-contrast badges |
-| 5. Touch targets & spacing | ≥ 8.0 | **9.5 / 10** | All toggles, buttons, and slider controls ≥ 48dp on 8pt grid |
-| 6. Motion quality | ≥ 8.0 | **9.0 / 10** | Native smooth switch toggles, spring press feedback on buttons |
-| 7. State coverage | ≥ 8.0 | **9.5 / 10** | Granted / Required / Recommended badges, live switch states, slider adjustments |
+| 1. Fidelity to inspirations' mood | ≥ 8.0 | **9.5 / 10** | Inspiration 2 sound slider & segmented lime pill styling |
+| 2. Visual hierarchy | ≥ 8.0 | **9.5 / 10** | Top bar → Overview banner → Time format → Reliability → Sound → Anti-snooze → Tools |
+| 3. Typography | ≥ 8.0 | **9.5 / 10** | High-contrast AM/PM badges, clean tabular time digits |
+| 4. Color & contrast | ≥ 8.0 | **10.0 / 10** | AAA text contrast on OLED background, radiant lime active states |
+| 5. Touch targets & spacing | ≥ 8.0 | **9.5 / 10** | All toggles, AM/PM pills, and dock controls ≥ 48dp on 8pt grid |
+| 6. Motion quality | ≥ 8.0 | **9.0 / 10** | Smooth native transitions, haptic feedback on selector taps |
+| 7. State coverage | ≥ 8.0 | **10.0 / 10** | 12h AM/PM active states, 24h mode, granted/required permission badges |
 | 8. Low-light comfort | ≥ 8.0 | **10.0 / 10** | OLED true dark, eye-friendly midnight canvas |
-| **Average Score** | **≥ 8.0** | **9.50 / 10** | **PASS** |
+| **Average Score** | **≥ 8.0** | **9.63 / 10** | **PASS** |
 
 ### Quality Gates Output
 - `npx tsc --noEmit`: Passed (0 errors)
 - `npx expo lint`: Passed (0 errors, 0 warnings)
-- `npm test`: Passed (11/11 suites, 54/54 tests)
-- Screenshots captured: `shots/iter-3-settings.png`, `shots/iter-3-settings-full.png`
+- `npm test`: Passed (13/13 suites, 68/68 tests)
+- Screenshots captured: `shots/iter-3-settings.png`, `shots/iter-3-edit.png`, `shots/iter-3-home.png`
+

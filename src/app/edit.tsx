@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAlarmStore } from '../store/alarm-store';
 import { DayOfWeek, Step } from '../domain/types';
+import { parseTo12Hour, formatTo24Hour } from '../domain/time-format';
 import { DaySelector } from '../components/alarm/DaySelector';
 import { StepBuilder } from '../components/alarm/StepBuilder';
 import { colors, spacing, radii, typography, shadows } from '../theme/tokens';
@@ -25,16 +26,28 @@ export default function EditAlarmScreen() {
     id ? state.getAlarmById(id) : undefined
   );
 
+  const timeFormat = useAlarmStore((state) => state.timeFormat);
   const addAlarm = useAlarmStore((state) => state.addAlarm);
   const updateAlarm = useAlarmStore((state) => state.updateAlarm);
   const deleteAlarm = useAlarmStore((state) => state.deleteAlarm);
 
-  // Form State
-  const initialHours = existingAlarm ? existingAlarm.time.split(':')[0] : '07';
-  const initialMinutes = existingAlarm ? existingAlarm.time.split(':')[1] : '00';
+  // Form State based on 12h or 24h format
+  const initialTimeParts = React.useMemo(() => {
+    if (existingAlarm) {
+      if (timeFormat === '12h') {
+        const p = parseTo12Hour(existingAlarm.time);
+        return { hours: p.hoursString, minutes: p.minutesString, ampm: p.ampm };
+      }
+      const [h, m] = existingAlarm.time.split(':');
+      return { hours: h || '07', minutes: m || '00', ampm: 'AM' as const };
+    }
+    return { hours: '07', minutes: '00', ampm: 'AM' as const };
+  }, [existingAlarm, timeFormat]);
 
-  const [hours, setHours] = useState(initialHours);
-  const [minutes, setMinutes] = useState(initialMinutes);
+  const [hours, setHours] = useState(initialTimeParts.hours);
+  const [minutes, setMinutes] = useState(initialTimeParts.minutes);
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>(initialTimeParts.ampm);
+
   const [days, setDays] = useState<DayOfWeek[]>(existingAlarm?.days || []);
   const [label, setLabel] = useState(existingAlarm?.label || '');
   const [steps, setSteps] = useState<Step[]>(
@@ -44,9 +57,16 @@ export default function EditAlarmScreen() {
 
   const adjustHour = (delta: number) => {
     Haptics.selectionAsync().catch(() => {});
-    const current = parseInt(hours, 10) || 0;
-    const next = (current + delta + 24) % 24;
-    setHours(next.toString().padStart(2, '0'));
+    const current = parseInt(hours, 10) || 1;
+    if (timeFormat === '12h') {
+      // 1 to 12
+      const next = (((current - 1 + delta) % 12) + 12) % 12 + 1;
+      setHours(next.toString().padStart(2, '0'));
+    } else {
+      // 0 to 23
+      const next = (current + delta + 24) % 24;
+      setHours(next.toString().padStart(2, '0'));
+    }
   };
 
   const adjustMinute = (delta: number) => {
@@ -58,7 +78,16 @@ export default function EditAlarmScreen() {
 
   const handleSave = () => {
     setErrorText(null);
-    const time = `${hours}:${minutes}`;
+
+    // Canonical 24-hour time string
+    const time =
+      timeFormat === '12h'
+        ? formatTo24Hour(
+            parseInt(hours, 10) || 12,
+            parseInt(minutes, 10) || 0,
+            ampm
+          )
+        : `${(parseInt(hours, 10) || 0).toString().padStart(2, '0')}:${(parseInt(minutes, 10) || 0).toString().padStart(2, '0')}`;
 
     if (isEditing && id) {
       const result = updateAlarm(id, {
@@ -142,7 +171,7 @@ export default function EditAlarmScreen() {
           </View>
         )}
 
-        {/* Time Picker Card */}
+        {/* Time Picker Card (Supports 12-hour with AM/PM & 24-hour) */}
         <View style={styles.timeCard}>
           {/* Hours */}
           <View style={styles.timeColumn}>
@@ -150,6 +179,7 @@ export default function EditAlarmScreen() {
               testID="hour-up"
               style={styles.adjustBtn}
               onPress={() => adjustHour(1)}
+              accessibilityLabel="Increase hour"
             >
               <Text style={styles.adjustBtnText}>▲</Text>
             </TouchableOpacity>
@@ -160,6 +190,7 @@ export default function EditAlarmScreen() {
               testID="hour-down"
               style={styles.adjustBtn}
               onPress={() => adjustHour(-1)}
+              accessibilityLabel="Decrease hour"
             >
               <Text style={styles.adjustBtnText}>▼</Text>
             </TouchableOpacity>
@@ -173,6 +204,7 @@ export default function EditAlarmScreen() {
               testID="minute-up"
               style={styles.adjustBtn}
               onPress={() => adjustMinute(5)}
+              accessibilityLabel="Increase minute"
             >
               <Text style={styles.adjustBtnText}>▲</Text>
             </TouchableOpacity>
@@ -183,10 +215,46 @@ export default function EditAlarmScreen() {
               testID="minute-down"
               style={styles.adjustBtn}
               onPress={() => adjustMinute(-5)}
+              accessibilityLabel="Decrease minute"
             >
               <Text style={styles.adjustBtnText}>▼</Text>
             </TouchableOpacity>
           </View>
+
+          {/* AM / PM Segmented Selector for 12-hour format */}
+          {timeFormat === '12h' && (
+            <View style={styles.ampmColumn}>
+              <TouchableOpacity
+                testID="period-am"
+                style={[styles.ampmBtn, ampm === 'AM' && styles.ampmBtnActive]}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setAmpm('AM');
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Set AM"
+              >
+                <Text style={[styles.ampmText, ampm === 'AM' && styles.ampmTextActive]}>
+                  AM
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="period-pm"
+                style={[styles.ampmBtn, ampm === 'PM' && styles.ampmBtnActive]}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setAmpm('PM');
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Set PM"
+              >
+                <Text style={[styles.ampmText, ampm === 'PM' && styles.ampmTextActive]}>
+                  PM
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Day Selector */}
@@ -255,6 +323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.xs,
     borderRadius: radii.pill,
+    ...shadows.glowLime,
   },
   saveText: {
     color: colors.textInverse,
@@ -285,10 +354,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.card,
     paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.base,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     ...shadows.card,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   timeColumn: {
     alignItems: 'center',
@@ -315,6 +385,34 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.light,
     marginTop: -spacing.md,
   },
+  ampmColumn: {
+    marginLeft: spacing.sm,
+    gap: spacing.xs + 2,
+  },
+  ampmBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  ampmBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadows.glowLime,
+  },
+  ampmText: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
+  },
+  ampmTextActive: {
+    color: colors.textInverse,
+    fontWeight: typography.weights.black,
+  },
   fieldContainer: {
     gap: spacing.sm,
   },
@@ -331,7 +429,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.sizes.body,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
   },
   deleteAlarmBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',

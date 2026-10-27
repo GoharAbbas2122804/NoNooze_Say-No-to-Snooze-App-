@@ -25,11 +25,15 @@ import {
 } from 'lucide-react-native';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import { PermissionStatus } from '../services/alarm-scheduler/types';
+import { useAlarmStore } from '../store/alarm-store';
 import { colors, spacing, radii, typography, shadows, iconSizes } from '../theme/tokens';
 import { APP_NAME } from '../constants/app';
 import * as Haptics from 'expo-haptics';
 
 export default function SettingsScreen() {
+  const timeFormat = useAlarmStore((state) => state.timeFormat);
+  const setTimeFormat = useAlarmStore((state) => state.setTimeFormat);
+
   const [status, setStatus] = useState<PermissionStatus>({
     notifications: false,
     exactAlarms: false,
@@ -155,6 +159,82 @@ export default function SettingsScreen() {
                 ? 'System exemptions active. Alarms will ring through Doze and screen lock.'
                 : 'Android may delay background alarms without exact alarm and battery exemptions.'}
             </Text>
+          </View>
+        </View>
+
+        {/* Section: Time Format & Display */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>TIME & CLOCK DISPLAY</Text>
+            <Text style={styles.sectionBadge}>
+              {timeFormat === '12h' ? '12-Hour Active' : '24-Hour Active'}
+            </Text>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.rowIconCircle}>
+              <Clock size={iconSizes.md} color={colors.primary} />
+            </View>
+
+            <View style={styles.rowContent}>
+              <View style={styles.rowTitleHeader}>
+                <Text style={styles.rowTitle}>Time Format</Text>
+              </View>
+              <Text style={styles.rowDescription}>
+                Choose between 12-hour (AM/PM) and 24-hour display across your alarms, alarm editor, and home clock.
+              </Text>
+
+              {/* Segmented Control Pills */}
+              <View style={styles.formatSegmentContainer}>
+                <TouchableOpacity
+                  testID="time-format-12h-btn"
+                  style={[
+                    styles.formatSegmentBtn,
+                    timeFormat === '12h' && styles.formatSegmentBtnActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setTimeFormat('12h');
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="12-hour time format with AM and PM"
+                >
+                  <Text
+                    style={[
+                      styles.formatSegmentText,
+                      timeFormat === '12h' && styles.formatSegmentTextActive,
+                    ]}
+                  >
+                    12-Hour (AM / PM)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  testID="time-format-24h-btn"
+                  style={[
+                    styles.formatSegmentBtn,
+                    timeFormat === '24h' && styles.formatSegmentBtnActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setTimeFormat('24h');
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="24-hour military time format"
+                >
+                  <Text
+                    style={[
+                      styles.formatSegmentText,
+                      timeFormat === '24h' && styles.formatSegmentTextActive,
+                    ]}
+                  >
+                    24-Hour (24h)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -813,6 +893,36 @@ const styles = StyleSheet.create({
   continueButtonText: {
     color: colors.textInverse,
     fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
+  },
+  formatSegmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 3,
+    marginTop: spacing.sm,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  formatSegmentBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatSegmentBtnActive: {
+    backgroundColor: colors.primary,
+    ...shadows.glowLime,
+  },
+  formatSegmentText: {
+    fontSize: typography.sizes.bodySmall,
+    fontWeight: typography.weights.semibold,
+    color: colors.textSecondary,
+  },
+  formatSegmentTextActive: {
+    color: colors.textInverse,
     fontWeight: typography.weights.bold,
   },
 });

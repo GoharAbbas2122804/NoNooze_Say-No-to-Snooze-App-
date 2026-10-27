@@ -10,7 +10,10 @@ export interface AlarmStoreState {
   alarms: Alarm[];
   activeAlarmId: string | null;
 
+  timeFormat: '12h' | '24h';
+
   // Actions
+  setTimeFormat: (format: '12h' | '24h') => void;
   addAlarm: (
     alarmData: Omit<Alarm, 'id'>
   ) => { success: boolean; id?: string; errors?: string[] };
@@ -30,6 +33,9 @@ export const useAlarmStore = create<AlarmStoreState>()(
     (set, get) => ({
       alarms: [],
       activeAlarmId: null,
+      timeFormat: '12h',
+
+      setTimeFormat: (format) => set({ timeFormat: format }),
 
       addAlarm: (alarmData) => {
         const tempAlarm: Alarm = {
@@ -120,7 +126,7 @@ export const useAlarmStore = create<AlarmStoreState>()(
     {
       name: 'nonooze_alarm_storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ alarms: state.alarms }),
+      partialize: (state) => ({ alarms: state.alarms, timeFormat: state.timeFormat }),
     }
   )
 );
