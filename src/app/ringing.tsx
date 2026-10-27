@@ -9,6 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { Zap, Lock } from 'lucide-react-native';
 import { useAlarmStore } from '../store/alarm-store';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import {
@@ -39,6 +47,28 @@ export default function RingingScreen() {
     createInitialStepRunnerState
   );
 
+  // Subtle, calm breathing animation on time (motion spec: 2200ms sine cycle)
+  const breatheScale = useSharedValue(1);
+  const breatheOpacity = useSharedValue(0.92);
+
+  useEffect(() => {
+    breatheScale.value = withRepeat(
+      withTiming(1.03, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    breatheOpacity.value = withRepeat(
+      withTiming(1.0, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+  }, [breatheScale, breatheOpacity]);
+
+  const animatedTimeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breatheScale.value }],
+    opacity: breatheOpacity.value,
+  }));
+
   // Disable Android hardware back button
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -64,15 +94,24 @@ export default function RingingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header with Alarm Time & Label */}
         <View style={styles.header}>
           <View style={styles.ringingPill}>
-            <Text style={styles.ringingPillText}>⚡ {APP_NAME} ALARM RINGING</Text>
+            <Zap size={14} color={colors.accent} />
+            <Text style={styles.ringingPillText}>{APP_NAME} ALARM RINGING</Text>
           </View>
-          <Text style={styles.alarmTimeText}>
-            {activeAlarm?.time || '07:00'}
-          </Text>
+
+          <Animated.View style={[styles.timeWrapper, animatedTimeStyle]}>
+            <Text style={styles.alarmTimeText}>
+              {activeAlarm?.time || '07:00'}
+            </Text>
+          </Animated.View>
+
           <Text style={styles.alarmLabelText}>
             {activeAlarm?.label || 'Wake Up!'}
           </Text>
@@ -82,9 +121,11 @@ export default function RingingScreen() {
         {state.status === 'running' && (
           <View style={styles.stepProgressContainer}>
             <View style={styles.stepProgressHeader}>
-              <Text style={styles.stepCounterText}>
-                Step {state.stepIndex + 1} of {state.totalSteps}
-              </Text>
+              <View style={styles.stepCounterBadge}>
+                <Text style={styles.stepCounterText}>
+                  Step {state.stepIndex + 1} of {state.totalSteps}
+                </Text>
+              </View>
               <Text style={styles.stepMethodText}>{methodDef?.title}</Text>
             </View>
 
@@ -119,8 +160,9 @@ export default function RingingScreen() {
 
         {/* Unskippable Notice */}
         <View style={styles.footerNotice}>
+          <Lock size={14} color={colors.textMuted} />
           <Text style={styles.footerNoticeText}>
-            🔒 No snooze allowed. Complete all challenges to dismiss.
+            No snooze allowed. Complete all challenges to dismiss.
           </Text>
         </View>
       </ScrollView>
@@ -145,9 +187,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   ringingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     backgroundColor: colors.accentGlow,
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.accent,
@@ -159,11 +204,15 @@ const styles = StyleSheet.create({
     fontWeight: typography.weights.bold,
     letterSpacing: 1,
   },
+  timeWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   alarmTimeText: {
     color: colors.textPrimary,
     fontSize: typography.sizes.hero,
     fontWeight: typography.weights.black,
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   alarmLabelText: {
     color: colors.textSecondary,
@@ -176,7 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     gap: spacing.sm,
     ...shadows.card,
   },
@@ -185,9 +234,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  stepCounterBadge: {
+    backgroundColor: 'rgba(112, 244, 100, 0.15)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+  },
   stepCounterText: {
     color: colors.primary,
-    fontSize: typography.sizes.bodySmall,
+    fontSize: typography.sizes.caption,
     fontWeight: typography.weights.bold,
   },
   stepMethodText: {
@@ -208,6 +263,7 @@ const styles = StyleSheet.create({
   },
   segmentActive: {
     backgroundColor: colors.primary,
+    ...shadows.glowLime,
   },
   segmentCompleted: {
     backgroundColor: colors.success,
@@ -221,6 +277,9 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.body,
   },
   footerNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginTop: spacing.md,
     paddingHorizontal: spacing.base,
   },

@@ -439,11 +439,6 @@
       "degree": 15
     },
     {
-      "id": "app_expo",
-      "label": "expo",
-      "degree": 13
-    },
-    {
       "id": "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler",
       "label": "FakeAlarmScheduler",
       "degree": 13
@@ -461,6 +456,11 @@
     {
       "id": "src_store_alarm_store_usealarmstore",
       "label": "useAlarmStore",
+      "degree": 13
+    },
+    {
+      "id": "app_expo",
+      "label": "expo",
       "degree": 13
     },
     {
@@ -482,48 +482,48 @@
       "why": "bridges separate communities; peripheral node `AlarmStoreState` unexpectedly reaches hub `Alarm`"
     },
     {
-      "source": "EditAlarmScreen()",
-      "target": "useAlarmStore",
+      "source": "AlarmCardProps",
+      "target": "Alarm",
       "source_files": [
-        "src/app/edit.tsx",
-        "src/store/alarm-store.ts"
+        "src/components/alarm/AlarmCard.tsx",
+        "src/domain/types.ts"
       ],
       "confidence": "EXTRACTED",
-      "relation": "calls",
+      "relation": "references",
+      "why": "peripheral node `AlarmCardProps` unexpectedly reaches hub `Alarm`"
+    },
+    {
+      "source": "DaySelectorProps",
+      "target": "DayOfWeek",
+      "source_files": [
+        "src/components/alarm/DaySelector.tsx",
+        "src/domain/types.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "peripheral node `DaySelectorProps` unexpectedly reaches hub `DayOfWeek`"
+    },
+    {
+      "source": "MathChallengeProps",
+      "target": "Step",
+      "source_files": [
+        "src/components/challenges/MathChallenge.tsx",
+        "src/domain/types.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
       "why": "bridges separate communities"
     },
     {
-      "source": "AlarmListScreen()",
-      "target": "getNextTriggerDate()",
+      "source": "StepBuilderProps",
+      "target": "Step",
       "source_files": [
-        "src/app/index.tsx",
-        "src/domain/next-trigger.ts"
+        "src/components/alarm/StepBuilder.tsx",
+        "src/domain/types.ts"
       ],
       "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "AlarmListScreen()",
-      "target": "useAlarmStore",
-      "source_files": [
-        "src/app/index.tsx",
-        "src/store/alarm-store.ts"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "PermissionsScreen()",
-      "target": "getAlarmScheduler()",
-      "source_files": [
-        "src/app/permissions.tsx",
-        "src/services/alarm-scheduler/index.ts"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "peripheral node `PermissionsScreen()` unexpectedly reaches hub `getAlarmScheduler()`"
+      "relation": "references",
+      "why": "peripheral node `StepBuilderProps` unexpectedly reaches hub `Step`"
     }
   ],
   "tokens": {

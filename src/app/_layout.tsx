@@ -37,6 +37,7 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen name="success" options={{ animation: 'fade' }} />
+        <Stack.Screen name="gallery" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, radii, typography, shadows } from '../../theme/tokens';
+import { Delete, Check } from 'lucide-react-native';
+import { colors, spacing, radii, typography, shadows, iconSizes } from '../../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
 interface NumericKeypadProps {
@@ -41,7 +42,9 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             testID={`keypad-${num}`}
             style={styles.keyButton}
             onPress={() => handleDigitPress(num)}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
+            accessibilityLabel={`Digit ${num}`}
+            accessibilityRole="button"
           >
             <Text style={styles.keyText}>{num}</Text>
           </TouchableOpacity>
@@ -55,7 +58,9 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             testID={`keypad-${num}`}
             style={styles.keyButton}
             onPress={() => handleDigitPress(num)}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
+            accessibilityLabel={`Digit ${num}`}
+            accessibilityRole="button"
           >
             <Text style={styles.keyText}>{num}</Text>
           </TouchableOpacity>
@@ -69,7 +74,9 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             testID={`keypad-${num}`}
             style={styles.keyButton}
             onPress={() => handleDigitPress(num)}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
+            accessibilityLabel={`Digit ${num}`}
+            accessibilityRole="button"
           >
             <Text style={styles.keyText}>{num}</Text>
           </TouchableOpacity>
@@ -81,16 +88,20 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
           testID="keypad-backspace"
           style={[styles.keyButton, styles.actionButton]}
           onPress={handleBackspacePress}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
+          accessibilityLabel="Backspace"
+          accessibilityRole="button"
         >
-          <Text style={styles.actionText}>⌫</Text>
+          <Delete size={iconSizes.lg} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <TouchableOpacity
           testID="keypad-0"
           style={styles.keyButton}
           onPress={() => handleDigitPress('0')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
+          accessibilityLabel="Digit 0"
+          accessibilityRole="button"
         >
           <Text style={styles.keyText}>0</Text>
         </TouchableOpacity>
@@ -103,12 +114,16 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
             submitDisabled && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmitPress}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           disabled={submitDisabled}
+          accessibilityLabel="Submit Answer"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: submitDisabled }}
         >
-          <Text style={[styles.submitText, submitDisabled && styles.submitTextDisabled]}>
-            ✓
-          </Text>
+          <Check
+            size={iconSizes.lg}
+            color={submitDisabled ? colors.textMuted : colors.textInverse}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -128,13 +143,14 @@ const styles = StyleSheet.create({
   },
   keyButton: {
     flex: 1,
+    minHeight: 56,
     height: 64,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.xl,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     ...shadows.card,
   },
   keyText: {
@@ -144,27 +160,18 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: colors.surface,
-  },
-  actionText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.h2,
-    fontWeight: typography.weights.medium,
+    borderColor: colors.border,
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+    ...shadows.glowLime,
   },
   submitButtonDisabled: {
     backgroundColor: colors.disabled,
     borderColor: colors.border,
-    opacity: 0.5,
-  },
-  submitText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.h2,
-    fontWeight: typography.weights.bold,
-  },
-  submitTextDisabled: {
-    color: colors.textMuted,
+    opacity: 0.45,
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });

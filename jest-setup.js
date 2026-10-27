@@ -22,6 +22,15 @@ jest.mock('react-native-reanimated', () => {
     withTiming: (toValue) => toValue,
     withSequence: (...args) => args[args.length - 1],
     withSpring: (toValue) => toValue,
+    withRepeat: (anim) => anim,
+    Easing: {
+      inOut: (fn) => fn,
+      sin: (t) => t,
+      elastic: () => (t) => t,
+      cubic: (t) => t,
+      linear: (t) => t,
+      out: (fn) => fn,
+    },
   };
 });
 
@@ -46,3 +55,20 @@ jest.mock('expo-haptics', () => ({
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
+
+// Mock lucide-react-native
+jest.mock('lucide-react-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return new Proxy(
+    {},
+    {
+      get: (_, prop) => {
+        const MockIcon = (props) => React.createElement(View, { testID: `icon-${String(prop)}`, ...props });
+        MockIcon.displayName = String(prop);
+        return MockIcon;
+      },
+    }
+  );
+});
+

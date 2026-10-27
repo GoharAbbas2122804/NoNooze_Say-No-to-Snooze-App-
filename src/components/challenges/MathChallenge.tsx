@@ -33,7 +33,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
   const [solved, setSolved] = useState<number>(0);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  // Shake animation
+  // Shake animation on error
   const shakeX = useSharedValue(0);
 
   const triggerShake = () => {
@@ -74,6 +74,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
       setSolved(nextSolved);
       setInput('');
       setHasError(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onProgress();
 
       if (nextSolved >= step.target) {
@@ -97,9 +98,14 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
     <View style={styles.container}>
       {/* Target Progress Bar */}
       <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>
-          Problem {Math.min(solved + 1, step.target)} of {step.target}
-        </Text>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressText}>
+            Problem {Math.min(solved + 1, step.target)} of {step.target}
+          </Text>
+          <Text style={styles.progressPercentage}>
+            {Math.round((solved / Math.max(step.target, 1)) * 100)}%
+          </Text>
+        </View>
         <View style={styles.track}>
           <View
             style={[
@@ -124,8 +130,8 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
           <View
             style={[
               styles.inputBox,
-              hasError && styles.inputBoxError,
               input.length > 0 && styles.inputBoxActive,
+              hasError && styles.inputBoxError,
             ]}
           >
             <Text
@@ -153,50 +159,65 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     alignItems: 'center',
-    gap: spacing.xl,
+    gap: spacing.lg,
   },
   progressContainer: {
     width: '100%',
     paddingHorizontal: spacing.base,
-    gap: spacing.sm,
+    gap: spacing.xs,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   progressText: {
     color: colors.textSecondary,
     fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
-    textAlign: 'center',
+    fontWeight: typography.weights.semibold,
+  },
+  progressPercentage: {
+    color: colors.primary,
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
   },
   track: {
-    height: 6,
+    height: 8,
     width: '100%',
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.pill,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   bar: {
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: radii.pill,
+    ...shadows.glowLime,
   },
   problemCard: {
-    width: '90%',
+    width: '100%',
     backgroundColor: colors.surface,
     borderRadius: radii.card,
-    paddingVertical: spacing.xxl,
+    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     ...shadows.card,
   },
   problemCardError: {
     borderColor: colors.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   questionText: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.h1,
+    fontSize: typography.sizes.hero,
     fontWeight: typography.weights.bold,
     marginBottom: spacing.md,
+    letterSpacing: -0.5,
   },
   equalsRow: {
     flexDirection: 'row',
@@ -206,11 +227,11 @@ const styles = StyleSheet.create({
   equalsSign: {
     color: colors.textSecondary,
     fontSize: typography.sizes.h1,
-    fontWeight: typography.weights.regular,
+    fontWeight: typography.weights.light,
   },
   inputBox: {
-    minWidth: 80,
-    height: 56,
+    minWidth: 90,
+    height: 60,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.lg,
     borderWidth: 1.5,
@@ -221,10 +242,12 @@ const styles = StyleSheet.create({
   },
   inputBoxActive: {
     borderColor: colors.primary,
+    backgroundColor: colors.surfaceActive,
+    ...shadows.glowLime,
   },
   inputBoxError: {
     borderColor: colors.error,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   inputText: {
     color: colors.primary,
