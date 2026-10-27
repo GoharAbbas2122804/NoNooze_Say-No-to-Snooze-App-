@@ -1,18 +1,43 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { colors } from '../theme/tokens';
+import { useAlarmStore } from '../store/alarm-store';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-SplashScreen.preventAutoHideAsync();
+export default function RootLayout() {
+  useEffect(() => {
+    // Hide splash screen and reschedule enabled alarms
+    SplashScreen.hideAsync().catch(() => {});
+    useAlarmStore.getState().rescheduleAll().catch(() => {});
+  }, []);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <>
+      <StatusBar style="light" backgroundColor={colors.background} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: colors.background,
+          },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="permissions" />
+        <Stack.Screen
+          name="ringing"
+          options={{
+            gestureEnabled: false,
+            animation: 'fade',
+          }}
+        />
+        <Stack.Screen name="success" options={{ animation: 'fade' }} />
+      </Stack>
+    </>
   );
 }
