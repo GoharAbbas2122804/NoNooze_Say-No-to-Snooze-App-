@@ -48,7 +48,8 @@
       ],
       "expo-audio",
       "react-native-notify-kit",
-      "./plugins/withLockScreen.js"
+      "./plugins/withLockScreen.js",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

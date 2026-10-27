@@ -13,16 +13,18 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
+import { Alarm, DayOfWeek } from '../../src/domain/types';
+
 // Mock expo-keep-awake
 jest.mock('expo-keep-awake', () => ({
   useKeepAwake: jest.fn(),
 }));
 
 describe('RingingScreen', () => {
-  const mockAlarm = {
+  const mockAlarm: Alarm = {
     id: 'ringing-alarm-1',
     time: '06:30',
-    days: [1, 2, 3],
+    days: [1, 2, 3] as DayOfWeek[],
     label: 'Morning Run',
     enabled: true,
     sound: 'default',

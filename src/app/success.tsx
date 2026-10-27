@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { colors, spacing, radii, typography, shadows } from '../theme/tokens';
-import { APP_NAME } from '../constants/app';
 import * as Haptics from 'expo-haptics';
 
 export default function SuccessScreen() {

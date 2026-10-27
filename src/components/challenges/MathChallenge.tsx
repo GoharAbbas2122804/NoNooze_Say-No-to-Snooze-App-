@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -36,7 +36,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
   // Shake animation
   const shakeX = useSharedValue(0);
 
-  const triggerShake = useCallback(() => {
+  const triggerShake = () => {
     shakeX.value = withSequence(
       withTiming(-12, { duration: 50 }),
       withTiming(12, { duration: 50 }),
@@ -46,7 +46,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
       withTiming(6, { duration: 50 }),
       withTiming(0, { duration: 50 })
     );
-  }, [shakeX]);
+  };
 
   const animatedShakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],

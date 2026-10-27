@@ -1,5 +1,5 @@
 import { getNextTriggerDate } from '../../src/domain/next-trigger';
-import { Alarm } from '../../src/domain/types';
+import { Alarm, DayOfWeek } from '../../src/domain/types';
 
 describe('getNextTriggerDate', () => {
   const baseAlarm: Alarm = {
@@ -57,7 +57,7 @@ describe('getNextTriggerDate', () => {
       const now = new Date(2026, 9, 28, 6, 0, 0);
       expect(now.getDay()).toBe(3);
 
-      const alarm = { ...baseAlarm, time: '07:30', days: [1, 3, 5] }; // Mon, Wed, Fri
+      const alarm = { ...baseAlarm, time: '07:30', days: [1, 3, 5] as DayOfWeek[] }; // Mon, Wed, Fri
       const trigger = getNextTriggerDate(alarm, now);
 
       expect(trigger.getDate()).toBe(28);
@@ -69,7 +69,7 @@ describe('getNextTriggerDate', () => {
     it('schedules for next enabled day if time has already passed today', () => {
       // 10:00 on Wednesday Oct 28, 2026 (day 3)
       const now = new Date(2026, 9, 28, 10, 0, 0);
-      const alarm = { ...baseAlarm, time: '07:30', days: [1, 3, 5] }; // Mon, Wed, Fri
+      const alarm = { ...baseAlarm, time: '07:30', days: [1, 3, 5] as DayOfWeek[] }; // Mon, Wed, Fri
 
       const trigger = getNextTriggerDate(alarm, now);
       // Next is Friday (day 5), Oct 30
@@ -84,7 +84,7 @@ describe('getNextTriggerDate', () => {
       const now = new Date(2026, 9, 31, 12, 0, 0);
       expect(now.getDay()).toBe(6);
 
-      const alarm = { ...baseAlarm, time: '07:00', days: [1, 2] }; // Mon, Tue
+      const alarm = { ...baseAlarm, time: '07:00', days: [1, 2] as DayOfWeek[] }; // Mon, Tue
       const trigger = getNextTriggerDate(alarm, now);
 
       // Next is Monday Nov 2, 2026 (day 1)

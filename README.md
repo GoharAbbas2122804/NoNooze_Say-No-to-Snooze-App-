@@ -1,56 +1,59 @@
-# Welcome to your Expo app 👋
+# NoNooze (Android Alarm App)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+NoNooze is an unskippable Android alarm application whose alarms can only be dismissed by completing cognitive or physical challenges.
 
-## Get started
+Week 1 Foundation delivers exact-minute alarm scheduling during Doze and screen off, full-screen lockscreen wakeup, persistent audio stream, step-runner state machine, math challenge, Zustand persistence, token-driven UI, and comprehensive test coverage.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Quick Start (Development Build)
 
-2. Start the app
+Ensure your Android phone is connected via USB with USB debugging enabled (`adb devices`).
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Run Development Build on Phone
 ```bash
-npm run reset-project
+# Builds and installs native Android debug APK to connected phone
+npx expo run:android
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+### 2. Start Metro Development Server (with Hot Reload)
+```bash
+npx expo start
+```
 
-### Other setup steps
+---
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Verification & Quality Gates
 
-## Learn more
+Run all quality gates before committing:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+# 1. Typecheck
+npx tsc --noEmit
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# 2. Lint
+npx expo lint
 
-## Join the community
+# 3. Expo Doctor Diagnostics
+npx expo-doctor
 
-Join our community of developers creating universal apps.
+# 4. Jest Unit & Component Tests (with Coverage)
+npm test -- --coverage
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## Architecture & Codebase Structure
+
+- **`src/constants/app.ts`**: Single definition of `APP_NAME = 'NoNooze'`.
+- **`src/theme/tokens.ts`**: Centralized design tokens (colors, 4/8pt spacing, border radii, typography scale, shadows) derived from design inspiration mockups.
+- **`src/domain/`**: Pure, test-driven business logic:
+  - `validation.ts`: Alarm validation rules (>= 1 step, math target 1-10, pushups/situps 5-50).
+  - `next-trigger.ts`: Exact next trigger calculation (one-time, repeating, week wrapping, midnight crossover, DST safe).
+  - `step-runner.ts`: Pure state machine reducer (`idle -> running(stepIndex, progress) -> completed`).
+  - `math-generator.ts`: Pure arithmetic problem generator with 3 difficulties, guaranteed integer answers, and division-by-zero protection.
+  - `dismissal-registry.ts`: Method registry (Math enabled; Pushups, Situps, Face marked "Coming Soon").
+- **`src/store/alarm-store.ts`**: Zustand state management with `@react-native-async-storage/async-storage` persistence.
+- **`src/services/alarm-scheduler/`**: `AlarmScheduler` interface backed by native trigger notifications and foreground audio service. Includes `FakeAlarmScheduler` for headless CI/tests.
+- **`plugins/withLockScreen.js`**: Expo config plugin injecting `android:showWhenLocked="true"` and `android:turnScreenOn="true"` into `MainActivity` for Continuous Native Generation (CNG).
+- **`docs/device-test-checklist.md`**: ADB commands and verification matrix for physical Android testing.

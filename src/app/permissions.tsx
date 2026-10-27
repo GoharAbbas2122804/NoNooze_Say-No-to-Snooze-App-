@@ -32,8 +32,19 @@ export default function PermissionsScreen() {
   }, []);
 
   useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
+    let active = true;
+    getAlarmScheduler()
+      .getPermissionStatus()
+      .then((s) => {
+        if (active) {
+          setStatus(s);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleRequestNotifications = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
