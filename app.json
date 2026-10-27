@@ -46,7 +46,9 @@
           "imageWidth": 76
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "react-native-notify-kit",
+      "./plugins/withLockScreen.js"
     ],
     "experiments": {
       "typedRoutes": true,

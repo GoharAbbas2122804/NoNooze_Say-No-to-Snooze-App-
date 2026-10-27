@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alarm } from '../domain/types';
 import { validateAlarm } from '../domain/validation';
 
+import { getAlarmScheduler } from '../services/alarm-scheduler';
+
 export interface AlarmStoreState {
   alarms: Alarm[];
   activeAlarmId: string | null;
@@ -18,6 +20,7 @@ export interface AlarmStoreState {
   ) => { success: boolean; errors?: string[] };
   deleteAlarm: (id: string) => void;
   toggleAlarm: (id: string) => void;
+  rescheduleAll: () => Promise<void>;
   setActiveAlarmId: (id: string | null) => void;
   getAlarmById: (id: string) => Alarm | undefined;
 }
@@ -43,6 +46,10 @@ export const useAlarmStore = create<AlarmStoreState>()(
           alarms: [...state.alarms, tempAlarm],
         }));
 
+        if (tempAlarm.enabled) {
+          getAlarmScheduler().schedule(tempAlarm).catch(() => {});
+        }
+
         return { success: true, id: tempAlarm.id };
       },
 
@@ -62,6 +69,12 @@ export const useAlarmStore = create<AlarmStoreState>()(
           alarms: state.alarms.map((a) => (a.id === id ? merged : a)),
         }));
 
+        if (merged.enabled) {
+          getAlarmScheduler().schedule(merged).catch(() => {});
+        } else {
+          getAlarmScheduler().cancel(id).catch(() => {});
+        }
+
         return { success: true };
       },
 
@@ -70,14 +83,30 @@ export const useAlarmStore = create<AlarmStoreState>()(
           alarms: state.alarms.filter((a) => a.id !== id),
           activeAlarmId: state.activeAlarmId === id ? null : state.activeAlarmId,
         }));
+        getAlarmScheduler().cancel(id).catch(() => {});
       },
 
       toggleAlarm: (id) => {
+        const target = get().getAlarmById(id);
+        if (!target) return;
+
+        const nextEnabled = !target.enabled;
+        const updated = { ...target, enabled: nextEnabled };
+
         set((state) => ({
-          alarms: state.alarms.map((a) =>
-            a.id === id ? { ...a, enabled: !a.enabled } : a
-          ),
+          alarms: state.alarms.map((a) => (a.id === id ? updated : a)),
         }));
+
+        if (nextEnabled) {
+          getAlarmScheduler().schedule(updated).catch(() => {});
+        } else {
+          getAlarmScheduler().cancel(id).catch(() => {});
+        }
+      },
+
+      rescheduleAll: async () => {
+        const enabledAlarms = get().alarms.filter((a) => a.enabled);
+        await getAlarmScheduler().rescheduleAll(enabledAlarms);
       },
 
       setActiveAlarmId: (id) => {
