@@ -44,16 +44,33 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
   return (
     <TouchableOpacity
       testID={`alarm-card-${alarm.id}`}
-      style={[styles.card, !alarm.enabled && styles.cardDisabled]}
+      style={[
+        styles.card,
+        alarm.enabled ? styles.cardActive : styles.cardDisabled,
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`Alarm for ${alarm.time}, ${alarm.label || 'Alarm'}`}
     >
       <View style={styles.topRow}>
         <View style={styles.timeContainer}>
-          <Text style={[styles.timeText, !alarm.enabled && styles.timeTextDisabled]}>
+          <Text
+            style={[
+              styles.timeText,
+              !alarm.enabled && styles.timeTextDisabled,
+            ]}
+          >
             {alarm.time}
           </Text>
-          <Text style={styles.repeatText}>{getDaysSummary()}</Text>
+          <Text
+            style={[
+              styles.repeatText,
+              !alarm.enabled && styles.repeatTextDisabled,
+            ]}
+          >
+            {getDaysSummary()}
+          </Text>
         </View>
 
         <Switch
@@ -62,21 +79,39 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
           onValueChange={handleToggle}
           trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
           thumbColor={colors.switchThumb}
+          accessibilityLabel={`Toggle alarm for ${alarm.time}`}
         />
       </View>
 
       <View style={styles.bottomRow}>
-        <Text style={styles.labelText} numberOfLines={1}>
-          {alarm.label || 'Alarm'}
+        <Text
+          style={[
+            styles.labelText,
+            !alarm.enabled && styles.labelTextDisabled,
+          ]}
+          numberOfLines={1}
+        >
+          {alarm.label || 'Wake Up Challenge'}
         </Text>
 
         <View style={styles.stepsPillContainer}>
           {alarm.steps.map((step, idx) => {
             const def = DISMISSAL_METHODS[step.methodId];
             return (
-              <View key={idx} style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>
-                  {def?.title || step.methodId} ({step.target})
+              <View
+                key={idx}
+                style={[
+                  styles.stepBadge,
+                  alarm.enabled && styles.stepBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepBadgeText,
+                    alarm.enabled && styles.stepBadgeTextActive,
+                  ]}
+                >
+                  {def?.title || step.methodId} · {step.target}
                 </Text>
               </View>
             );
@@ -93,12 +128,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     ...shadows.card,
     gap: spacing.md,
   },
+  cardActive: {
+    borderColor: 'rgba(112, 244, 100, 0.2)',
+  },
   cardDisabled: {
-    opacity: 0.55,
+    opacity: 0.6,
+    borderColor: colors.borderSubtle,
   },
   topRow: {
     flexDirection: 'row',
@@ -122,6 +161,9 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.bodySmall,
     fontWeight: typography.weights.medium,
   },
+  repeatTextDisabled: {
+    color: colors.textMuted,
+  },
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -129,12 +171,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
     paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   labelText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.body,
+    fontSize: typography.sizes.bodySmall,
     fontWeight: typography.weights.medium,
     flex: 1,
+  },
+  labelTextDisabled: {
+    color: colors.textMuted,
   },
   stepsPillContainer: {
     flexDirection: 'row',
@@ -145,13 +191,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: radii.sm,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
+  },
+  stepBadgeActive: {
+    borderColor: 'rgba(112, 244, 100, 0.35)',
+    backgroundColor: 'rgba(112, 244, 100, 0.08)',
   },
   stepBadgeText: {
-    color: colors.primary,
+    color: colors.textMuted,
     fontSize: typography.sizes.caption,
     fontWeight: typography.weights.semibold,
+  },
+  stepBadgeTextActive: {
+    color: colors.primary,
   },
 });
