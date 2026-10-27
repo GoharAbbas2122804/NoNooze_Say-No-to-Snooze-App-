@@ -1,0 +1,533 @@
+{
+  "communities": {
+    "0": [
+      "jest_setup",
+      "ref_expo_haptics",
+      "ref_expo_router",
+      "ref_react",
+      "ref_react_native",
+      "ref_react_native_safe_area_context",
+      "ref_testing_library_react_native",
+      "src_app_edit",
+      "src_app_edit_editalarmscreen",
+      "src_app_edit_styles",
+      "src_app_index",
+      "src_app_index_alarmlistscreen",
+      "src_app_index_styles",
+      "src_app_layout",
+      "src_app_layout_rootlayout",
+      "src_app_permissions",
+      "src_app_permissions_styles",
+      "src_app_success",
+      "src_app_success_styles",
+      "src_app_success_successscreen",
+      "src_components_alarm_alarmcard",
+      "src_components_alarm_alarmcard_alarmcard",
+      "src_components_alarm_alarmcard_day_names",
+      "src_components_alarm_alarmcard_styles",
+      "src_components_alarm_dayselector",
+      "src_components_alarm_dayselector_days",
+      "src_components_alarm_dayselector_dayselector",
+      "src_components_alarm_dayselector_styles",
+      "src_components_alarm_stepbuilder",
+      "src_components_alarm_stepbuilder_stepbuilder",
+      "src_components_alarm_stepbuilder_styles",
+      "src_components_challenges_mathchallenge",
+      "src_components_challenges_mathchallenge_mathchallenge",
+      "src_components_challenges_mathchallenge_styles",
+      "src_components_challenges_numerickeypad",
+      "src_components_challenges_numerickeypad_numerickeypad",
+      "src_components_challenges_numerickeypad_numerickeypadprops",
+      "src_components_challenges_numerickeypad_styles",
+      "src_constants_app",
+      "src_constants_app_app_name",
+      "src_hooks_use_color_scheme_web",
+      "src_hooks_use_color_scheme_web_usecolorscheme",
+      "src_theme_tokens",
+      "src_theme_tokens_colors",
+      "src_theme_tokens_radii",
+      "src_theme_tokens_shadows",
+      "src_theme_tokens_spacing",
+      "src_theme_tokens_typography",
+      "tests_components_mathchallenge_test",
+      "tests_components_stepbuilder_test",
+      "tests_screens_editalarm_test"
+    ],
+    "1": [
+      "ref_react_native_notify_kit",
+      "src_components_alarm_alarmcard_alarmcardprops",
+      "src_components_alarm_dayselector_dayselectorprops",
+      "src_domain_next_trigger",
+      "src_domain_next_trigger_getnexttriggerdate",
+      "src_domain_types",
+      "src_domain_types_alarm",
+      "src_domain_types_dayofweek",
+      "src_services_alarm_scheduler_fake_scheduler",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_cancel",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_getpermissionstatus",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_openbatteryoptimizationsettings",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_openexactalarmsettings",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_requestpermissions",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_rescheduleall",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_schedule",
+      "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler_stopringing",
+      "src_services_alarm_scheduler_index",
+      "src_services_alarm_scheduler_index_alarmschedulerservice",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_cancel",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_ensurechannel",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_getpermissionstatus",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_openbatteryoptimizationsettings",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_openexactalarmsettings",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_requestpermissions",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_rescheduleall",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_schedule",
+      "src_services_alarm_scheduler_index_alarmschedulerservice_stopringing",
+      "src_services_alarm_scheduler_types",
+      "src_services_alarm_scheduler_types_alarmscheduler",
+      "src_services_alarm_scheduler_types_alarmscheduler_cancel",
+      "src_services_alarm_scheduler_types_alarmscheduler_getpermissionstatus",
+      "src_services_alarm_scheduler_types_alarmscheduler_openbatteryoptimizationsettings",
+      "src_services_alarm_scheduler_types_alarmscheduler_openexactalarmsettings",
+      "src_services_alarm_scheduler_types_alarmscheduler_requestpermissions",
+      "src_services_alarm_scheduler_types_alarmscheduler_rescheduleall",
+      "src_services_alarm_scheduler_types_alarmscheduler_schedule",
+      "src_services_alarm_scheduler_types_alarmscheduler_stopringing",
+      "src_services_alarm_scheduler_types_permissionstatus",
+      "tests_domain_next_trigger_test",
+      "tests_services_alarm_scheduler_test",
+      "tests_services_fake_scheduler_test"
+    ],
+    "2": [
+      "src_components_hint_row",
+      "src_components_hint_row_hintrow",
+      "src_components_hint_row_hintrowprops",
+      "src_components_hint_row_styles",
+      "src_components_themed_text",
+      "src_components_themed_text_styles",
+      "src_components_themed_text_themedtext",
+      "src_components_themed_text_themedtextprops",
+      "src_components_themed_view",
+      "src_components_themed_view_themedview",
+      "src_components_themed_view_themedviewprops",
+      "src_components_ui_collapsible",
+      "src_components_ui_collapsible_collapsible",
+      "src_components_ui_collapsible_styles",
+      "src_components_web_badge",
+      "src_components_web_badge_styles",
+      "src_components_web_badge_webbadge",
+      "src_constants_theme",
+      "src_constants_theme_bottomtabinset",
+      "src_constants_theme_colors",
+      "src_constants_theme_fonts",
+      "src_constants_theme_maxcontentwidth",
+      "src_constants_theme_spacing",
+      "src_constants_theme_themecolor",
+      "src_global",
+      "src_hooks_use_color_scheme",
+      "src_hooks_use_color_scheme_usecolorscheme",
+      "src_hooks_use_theme",
+      "src_hooks_use_theme_usetheme"
+    ],
+    "3": [
+      "src_app_permissions_permissionsscreen",
+      "src_app_ringing",
+      "src_app_ringing_ringingscreen",
+      "src_app_ringing_styles",
+      "src_components_alarm_stepbuilder_stepbuilderprops",
+      "src_domain_dismissal_registry",
+      "src_domain_dismissal_registry_dismissal_methods",
+      "src_domain_dismissal_registry_dismissmethod",
+      "src_domain_dismissal_registry_dismissmethodprops",
+      "src_domain_step_runner",
+      "src_domain_step_runner_createinitialsteprunnerstate",
+      "src_domain_step_runner_steprunneraction",
+      "src_domain_step_runner_steprunnerreducer",
+      "src_domain_step_runner_steprunnerstate",
+      "src_domain_types_methodid",
+      "src_domain_types_step",
+      "src_domain_types_validationresult",
+      "src_domain_validation",
+      "src_domain_validation_validatealarm",
+      "src_domain_validation_validatestep",
+      "src_services_alarm_scheduler_index_getalarmscheduler",
+      "src_store_alarm_store",
+      "src_store_alarm_store_alarmstorestate",
+      "src_store_alarm_store_usealarmstore",
+      "tests_domain_step_runner_test",
+      "tests_domain_validation_test",
+      "tests_screens_ringingscreen_test",
+      "tests_store_alarm_store_test"
+    ],
+    "4": [
+      "app",
+      "app_adaptiveicon_backgroundcolor",
+      "app_adaptiveicon_backgroundimage",
+      "app_adaptiveicon_foregroundimage",
+      "app_adaptiveicon_monochromeimage",
+      "app_android_adaptiveicon",
+      "app_android_package",
+      "app_android_permissions",
+      "app_android_predictivebackgestureenabled",
+      "app_experiments_reactcompiler",
+      "app_experiments_typedroutes",
+      "app_expo",
+      "app_expo_android",
+      "app_expo_experiments",
+      "app_expo_icon",
+      "app_expo_ios",
+      "app_expo_name",
+      "app_expo_orientation",
+      "app_expo_plugins",
+      "app_expo_scheme",
+      "app_expo_slug",
+      "app_expo_userinterfacestyle",
+      "app_expo_version",
+      "app_expo_web",
+      "app_ios_icon",
+      "app_web_favicon",
+      "app_web_output"
+    ],
+    "5": [
+      "package_dependencies",
+      "package_dependencies_expo_asset",
+      "package_dependencies_expo_audio",
+      "package_dependencies_expo_dev_client",
+      "package_dependencies_expo_haptics",
+      "package_dependencies_expo_linking",
+      "package_dependencies_expo_router",
+      "package_dependencies_expo_ui",
+      "package_dependencies_react",
+      "package_dependencies_react_native",
+      "package_dependencies_react_native_async_storage_async_storage",
+      "package_dependencies_react_native_notify_kit",
+      "package_dependencies_react_native_safe_area_context",
+      "ref_expo_asset",
+      "ref_expo_audio",
+      "ref_expo_dev_client",
+      "ref_expo_linking",
+      "ref_expo_ui",
+      "ref_react_native_async_storage_async_storage"
+    ],
+    "6": [
+      "eslint_config",
+      "package_devdependencies",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_config_expo",
+      "package_devdependencies_jest",
+      "package_devdependencies_jest_expo",
+      "package_devdependencies_testing_library_react_native",
+      "package_devdependencies_types_jest",
+      "package_devdependencies_types_react",
+      "package_devdependencies_typescript",
+      "ref_eslint",
+      "ref_eslint_config_expo",
+      "ref_jest",
+      "ref_jest_expo",
+      "ref_types_jest",
+      "ref_types_react",
+      "ref_typescript"
+    ],
+    "7": [
+      "package",
+      "package_dependencies_expo",
+      "package_dependencies_expo_font",
+      "package_dependencies_expo_status_bar",
+      "package_dependencies_expo_system_ui",
+      "package_dependencies_react_native_gesture_handler",
+      "package_main",
+      "package_name",
+      "package_private",
+      "package_version",
+      "ref_expo",
+      "ref_expo_font",
+      "ref_expo_status_bar",
+      "ref_expo_system_ui",
+      "ref_react_native_gesture_handler"
+    ],
+    "8": [
+      "package_dependencies_expo_image",
+      "package_dependencies_expo_splash_screen",
+      "package_dependencies_react_native_reanimated",
+      "package_dependencies_react_native_worklets",
+      "ref_expo_image",
+      "ref_expo_splash_screen",
+      "ref_react_native_reanimated",
+      "ref_react_native_worklets",
+      "src_components_animated_icon",
+      "src_components_animated_icon_animatedicon",
+      "src_components_animated_icon_animatedsplashoverlay",
+      "src_components_animated_icon_glowkeyframe",
+      "src_components_animated_icon_keyframe",
+      "src_components_animated_icon_logokeyframe",
+      "src_components_animated_icon_styles"
+    ],
+    "9": [
+      "ref_fs",
+      "ref_path",
+      "ref_readline",
+      "scripts_reset_project",
+      "scripts_reset_project_exampleassets",
+      "scripts_reset_project_exampledirpath",
+      "scripts_reset_project_movedirectories",
+      "scripts_reset_project_olddirs",
+      "scripts_reset_project_rl",
+      "scripts_reset_project_root"
+    ],
+    "10": [
+      "ref_expo_tsconfig_base",
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_types",
+      "tsconfig_extends",
+      "tsconfig_include",
+      "tsconfig_paths_assets"
+    ],
+    "11": [
+      "src_components_challenges_mathchallenge_mathchallengeprops",
+      "src_domain_math_generator",
+      "src_domain_math_generator_generateproblem",
+      "src_domain_math_generator_getrandomint",
+      "src_domain_math_generator_mathdifficulty",
+      "src_domain_math_generator_mathproblem",
+      "src_domain_math_generator_rng",
+      "tests_domain_math_generator_test",
+      "tests_domain_math_generator_test_createseededrng"
+    ],
+    "12": [
+      "package_scripts",
+      "package_scripts_android",
+      "package_scripts_ios",
+      "package_scripts_lint",
+      "package_scripts_reset_project",
+      "package_scripts_start",
+      "package_scripts_test",
+      "package_scripts_web"
+    ],
+    "13": [
+      "src_components_animated_icon_module",
+      "src_components_animated_icon_web",
+      "src_components_animated_icon_web_animatedicon",
+      "src_components_animated_icon_web_animatedsplashoverlay",
+      "src_components_animated_icon_web_glowkeyframe",
+      "src_components_animated_icon_web_keyframe",
+      "src_components_animated_icon_web_logokeyframe",
+      "src_components_animated_icon_web_styles"
+    ],
+    "14": [
+      "src_components_external_link",
+      "src_components_external_link_externallink",
+      "src_components_external_link_props"
+    ],
+    "15": [
+      "package_dependencies_expo_constants",
+      "ref_expo_constants"
+    ],
+    "16": [
+      "package_dependencies_expo_device",
+      "ref_expo_device"
+    ],
+    "17": [
+      "package_dependencies_expo_glass_effect",
+      "ref_expo_glass_effect"
+    ],
+    "18": [
+      "package_dependencies_expo_keep_awake",
+      "ref_expo_keep_awake"
+    ],
+    "19": [
+      "package_dependencies_expo_linear_gradient",
+      "ref_expo_linear_gradient"
+    ],
+    "20": [
+      "package_dependencies_expo_symbols",
+      "ref_expo_symbols"
+    ],
+    "21": [
+      "package_dependencies_expo_web_browser",
+      "ref_expo_web_browser"
+    ],
+    "22": [
+      "package_dependencies_moti",
+      "ref_moti"
+    ],
+    "23": [
+      "package_dependencies_react_dom",
+      "ref_react_dom"
+    ],
+    "24": [
+      "package_dependencies_react_native_screens",
+      "ref_react_native_screens"
+    ],
+    "25": [
+      "package_dependencies_react_native_svg",
+      "ref_react_native_svg"
+    ],
+    "26": [
+      "package_dependencies_react_native_web",
+      "ref_react_native_web"
+    ],
+    "27": [
+      "package_dependencies_zustand",
+      "ref_zustand"
+    ],
+    "28": [
+      "plugins_withlockscreen",
+      "ref_expo_config_plugins"
+    ],
+    "29": [
+      "jest_config"
+    ],
+    "30": [
+      "mocks_react_native_notify_kit"
+    ]
+  },
+  "cohesion": {
+    "0": 0.1192156862745098,
+    "1": 0.09413067552602436,
+    "2": 0.15270935960591134,
+    "3": 0.14814814814814814,
+    "4": 0.07407407407407407,
+    "5": 0.10526315789473684,
+    "6": 0.125,
+    "7": 0.13333333333333333,
+    "8": 0.13333333333333333,
+    "9": 0.2,
+    "10": 0.2222222222222222,
+    "11": 0.3333333333333333,
+    "12": 0.25,
+    "13": 0.25,
+    "14": 0.6666666666666666,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0,
+    "30": 1.0
+  },
+  "gods": [
+    {
+      "id": "ref_react_native",
+      "label": "react-native",
+      "degree": 24
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 23
+    },
+    {
+      "id": "src_domain_types_alarm",
+      "label": "Alarm",
+      "degree": 22
+    },
+    {
+      "id": "src_domain_types_step",
+      "label": "Step",
+      "degree": 15
+    },
+    {
+      "id": "app_expo",
+      "label": "expo",
+      "degree": 13
+    },
+    {
+      "id": "src_services_alarm_scheduler_fake_scheduler_fakealarmscheduler",
+      "label": "FakeAlarmScheduler",
+      "degree": 13
+    },
+    {
+      "id": "src_services_alarm_scheduler_index_alarmschedulerservice",
+      "label": "AlarmSchedulerService",
+      "degree": 13
+    },
+    {
+      "id": "src_services_alarm_scheduler_types_alarmscheduler",
+      "label": "AlarmScheduler",
+      "degree": 13
+    },
+    {
+      "id": "src_store_alarm_store_usealarmstore",
+      "label": "useAlarmStore",
+      "degree": 13
+    },
+    {
+      "id": "src_theme_tokens_colors",
+      "label": "colors",
+      "degree": 12
+    }
+  ],
+  "surprises": [
+    {
+      "source": "AlarmStoreState",
+      "target": "Alarm",
+      "source_files": [
+        "src/store/alarm-store.ts",
+        "src/domain/types.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities; peripheral node `AlarmStoreState` unexpectedly reaches hub `Alarm`"
+    },
+    {
+      "source": "EditAlarmScreen()",
+      "target": "useAlarmStore",
+      "source_files": [
+        "src/app/edit.tsx",
+        "src/store/alarm-store.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "AlarmListScreen()",
+      "target": "getNextTriggerDate()",
+      "source_files": [
+        "src/app/index.tsx",
+        "src/domain/next-trigger.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "AlarmListScreen()",
+      "target": "useAlarmStore",
+      "source_files": [
+        "src/app/index.tsx",
+        "src/store/alarm-store.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "PermissionsScreen()",
+      "target": "getAlarmScheduler()",
+      "source_files": [
+        "src/app/permissions.tsx",
+        "src/services/alarm-scheduler/index.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `PermissionsScreen()` unexpectedly reaches hub `getAlarmScheduler()`"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
