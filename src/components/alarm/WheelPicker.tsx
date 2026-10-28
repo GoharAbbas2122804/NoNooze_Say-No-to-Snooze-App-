@@ -5,7 +5,7 @@ import {
   StyleSheet,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  FlatList,
+  ScrollView,
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -67,7 +67,7 @@ export function WheelPickerColumn({
   onInteractionEnd,
 }: WheelPickerColumnProps) {
   const { colors } = useTheme();
-  const listRef = useRef<FlatList>(null);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const [localIndex, setLocalIndex] = useState(
     Math.max(0, Math.min(selectedIndex, items.length - 1))
   );
@@ -81,8 +81,8 @@ export function WheelPickerColumn({
     if (!isUserInteracting.current && selectedIndex >= 0 && selectedIndex < items.length) {
       setLocalIndex(selectedIndex);
       lastHapticIndex.current = selectedIndex;
-      listRef.current?.scrollToOffset({
-        offset: selectedIndex * itemHeight,
+      scrollRef.current?.scrollTo({
+        y: selectedIndex * itemHeight,
         animated: false,
       });
     }
@@ -128,8 +128,8 @@ export function WheelPickerColumn({
       setLocalIndex(index);
       lastHapticIndex.current = index;
       onSelectIndex(index);
-      listRef.current?.scrollToOffset({
-        offset: index * itemHeight,
+      scrollRef.current?.scrollTo({
+        y: index * itemHeight,
         animated: true,
       });
     },
@@ -186,22 +186,14 @@ export function WheelPickerColumn({
         <ChevronUp size={16} color={colors.muted} />
       </Pressable>
 
-      {/* Scrollable Tumbler FlatList */}
-      <FlatList
-        ref={listRef}
-        data={items}
-        keyExtractor={(_, index) => String(index)}
+      {/* Scrollable Tumbler ScrollView (Never virtualized, 100% nested scroll safe) */}
+      <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled={true}
         decelerationRate="fast"
         snapToInterval={itemHeight}
         snapToAlignment="center"
-        initialScrollIndex={selectedIndex >= 0 && selectedIndex < items.length ? selectedIndex : 0}
-        getItemLayout={(_, index) => ({
-          length: itemHeight,
-          offset: itemHeight * index,
-          index,
-        })}
         onScrollBeginDrag={() => {
           isUserInteracting.current = true;
           onInteractionStart?.();
@@ -218,9 +210,9 @@ export function WheelPickerColumn({
         onMomentumScrollEnd={handleScrollEnd}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        ListHeaderComponent={<View style={{ height: padCount * itemHeight }} pointerEvents="none" />}
-        ListFooterComponent={<View style={{ height: padCount * itemHeight }} pointerEvents="none" />}
-        renderItem={({ item, index }) => {
+      >
+        <View style={{ height: padCount * itemHeight }} pointerEvents="none" />
+        {items.map((item, index) => {
           const delta = index - localIndex;
           const { xOffset, scale, opacity, rotateX } = calculateWheelArcOffset(
             delta,
@@ -230,6 +222,7 @@ export function WheelPickerColumn({
 
           return (
             <Pressable
+              key={index}
               onPress={() => handleItemPress(index)}
               accessibilityRole="button"
               accessibilityLabel={`${item}, ${isSelected ? 'selected' : 'option'}`}
@@ -262,8 +255,9 @@ export function WheelPickerColumn({
               </Text>
             </Pressable>
           );
-        }}
-      />
+        })}
+        <View style={{ height: padCount * itemHeight }} pointerEvents="none" />
+      </ScrollView>
 
       {/* Bottom subtle nudge trigger */}
       <Pressable
