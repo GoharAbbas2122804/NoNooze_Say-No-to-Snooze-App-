@@ -45,6 +45,7 @@ export interface WheelPickerColumnProps {
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
   isLeftColumn?: boolean;
+  label?: string;
   itemHeight?: number;
   visibleCount?: number;
   testID?: string;
@@ -60,6 +61,7 @@ export function WheelPickerColumn({
   selectedIndex,
   onSelectIndex,
   isLeftColumn = true,
+  label,
   itemHeight = DEFAULT_ITEM_HEIGHT,
   visibleCount = VISIBLE_ITEMS,
   testID,
@@ -76,11 +78,21 @@ export function WheelPickerColumn({
   const lastHapticIndex = useRef(selectedIndex);
   const padCount = Math.floor(visibleCount / 2);
 
-  // Sync from parent when not dragging
+  // Sync scroll position when parent changes selectedIndex externally
   useEffect(() => {
     if (!isUserInteracting.current && selectedIndex >= 0 && selectedIndex < items.length) {
       setLocalIndex(selectedIndex);
       lastHapticIndex.current = selectedIndex;
+      scrollRef.current?.scrollTo({
+        y: selectedIndex * itemHeight,
+        animated: true,
+      });
+    }
+  }, [selectedIndex, itemHeight, items.length]);
+
+  // Initial layout positioning to ensure correct offset on Android & iOS
+  const handleLayout = useCallback(() => {
+    if (selectedIndex >= 0 && selectedIndex < items.length) {
       scrollRef.current?.scrollTo({
         y: selectedIndex * itemHeight,
         animated: false,
@@ -88,7 +100,7 @@ export function WheelPickerColumn({
     }
   }, [selectedIndex, itemHeight, items.length]);
 
-  // Live scroll handler: updates visual 3D position and plays tactile clock tick
+  // Lightweight live scroll handler: fires clock tick haptic and live updates active index
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = e.nativeEvent.contentOffset.y;
@@ -98,18 +110,16 @@ export function WheelPickerColumn({
       if (clamped !== lastHapticIndex.current) {
         lastHapticIndex.current = clamped;
         setLocalIndex(clamped);
+        onSelectIndex(clamped);
         Haptics.selectionAsync().catch(() => {});
       }
     },
-    [itemHeight, items.length]
+    [itemHeight, items.length, onSelectIndex]
   );
 
-  // Commit selection to parent when scroll settles
+  // Settle & commit selection on momentum stop
   const handleScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      isUserInteracting.current = false;
-      onInteractionEnd?.();
-
       const offsetY = e.nativeEvent.contentOffset.y;
       const index = Math.round(offsetY / itemHeight);
       const clamped = Math.max(0, Math.min(index, items.length - 1));
@@ -117,11 +127,23 @@ export function WheelPickerColumn({
       setLocalIndex(clamped);
       lastHapticIndex.current = clamped;
       onSelectIndex(clamped);
+
+      // Snap precisely to the slot if not already resting cleanly on it
+      const isCloseToSnap = Math.abs(offsetY - clamped * itemHeight) < 1;
+      if (!isCloseToSnap) {
+        scrollRef.current?.scrollTo({
+          y: clamped * itemHeight,
+          animated: true,
+        });
+      }
+
+      isUserInteracting.current = false;
+      onInteractionEnd?.();
     },
     [itemHeight, items.length, onInteractionEnd, onSelectIndex]
   );
 
-  // Tap an item directly to jump to it
+  // Tap an individual number directly
   const handleItemPress = useCallback(
     (index: number) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -132,17 +154,18 @@ export function WheelPickerColumn({
         y: index * itemHeight,
         animated: true,
       });
+      onInteractionEnd?.();
     },
-    [itemHeight, onSelectIndex]
+    [itemHeight, onInteractionEnd, onSelectIndex]
   );
 
-  // Step up (nudge previous)
+  // Nudge step up (-1)
   const handleNudgeUp = useCallback(() => {
     const next = Math.max(0, localIndex - 1);
     handleItemPress(next);
   }, [localIndex, handleItemPress]);
 
-  // Step down (nudge next)
+  // Nudge step down (+1)
   const handleNudgeDown = useCallback(() => {
     const next = Math.min(items.length - 1, localIndex + 1);
     handleItemPress(next);
@@ -153,6 +176,19 @@ export function WheelPickerColumn({
   return (
     <View
       testID={testID}
+      onTouchStart={() => {
+        isUserInteracting.current = true;
+        onInteractionStart?.();
+      }}
+      onTouchEnd={() => {
+        if (!isUserInteracting.current) {
+          onInteractionEnd?.();
+        }
+      }}
+      onTouchCancel={() => {
+        isUserInteracting.current = false;
+        onInteractionEnd?.();
+      }}
       style={[
         styles.columnContainer,
         {
@@ -162,6 +198,15 @@ export function WheelPickerColumn({
         },
       ]}
     >
+      {/* Column header label */}
+      {label ? (
+        <View style={styles.labelContainer} pointerEvents="none">
+          <Text style={[styles.columnLabel, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            {label}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Center lens selection overlay (behind text, pointerEvents="none") */}
       <View
         pointerEvents="none"
@@ -186,26 +231,28 @@ export function WheelPickerColumn({
         <ChevronUp size={16} color={colors.muted} />
       </Pressable>
 
-      {/* Scrollable Tumbler ScrollView (Never virtualized, 100% nested scroll safe) */}
+      {/* Native Scrollable Tumbler (Non-virtualized, zero nesting conflicts) */}
       <ScrollView
         ref={scrollRef}
+        contentOffset={{ x: 0, y: Math.max(0, selectedIndex * itemHeight) }}
+        onLayout={handleLayout}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled={true}
         decelerationRate="fast"
         snapToInterval={itemHeight}
-        snapToAlignment="center"
+        snapToAlignment="start"
         onScrollBeginDrag={() => {
           isUserInteracting.current = true;
           onInteractionStart?.();
         }}
         onScrollEndDrag={(e) => {
-          // If velocity is 0 (released without momentum), settle immediately
           if (Math.abs(e.nativeEvent.velocity?.y || 0) < 0.1) {
             handleScrollEnd(e);
           }
         }}
         onMomentumScrollBegin={() => {
           isUserInteracting.current = true;
+          onInteractionStart?.();
         }}
         onMomentumScrollEnd={handleScrollEnd}
         onScroll={handleScroll}
@@ -275,11 +322,24 @@ export function WheelPickerColumn({
 const styles = StyleSheet.create({
   columnContainer: {
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
     borderRadius: radii.card,
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
+  },
+  labelContainer: {
+    position: 'absolute',
+    top: 4,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  columnLabel: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    opacity: 0.6,
   },
   selectionLens: {
     position: 'absolute',
@@ -296,7 +356,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   itemText: {
-    fontSize: 42,
+    fontSize: 40,
     letterSpacing: -1,
   },
   nudgeButton: {
@@ -310,9 +370,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   nudgeTop: {
-    top: 2,
+    top: 14,
   },
   nudgeBottom: {
-    bottom: 2,
+    bottom: 4,
   },
 });

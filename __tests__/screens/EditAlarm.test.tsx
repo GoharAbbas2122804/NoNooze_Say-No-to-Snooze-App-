@@ -106,4 +106,30 @@ describe('EditAlarmScreen', () => {
     expect(screen.queryByTestId('period-am')).toBeNull();
     expect(screen.queryByTestId('period-pm')).toBeNull();
   });
+
+  it('adjusts time accurately using quick-adjust presets', async () => {
+    const user = userEvent.setup();
+    useAlarmStore.setState({ timeFormat: '12h' });
+
+    await render(<EditAlarmScreen />);
+
+    expect(screen.getByTestId('hours-display')).toHaveTextContent('07');
+    expect(screen.getByTestId('minutes-display')).toHaveTextContent('00');
+
+    // Tap +15m
+    await user.press(screen.getByTestId('quick-adjust-+15m'));
+    expect(screen.getByTestId('hours-display')).toHaveTextContent('07');
+    expect(screen.getByTestId('minutes-display')).toHaveTextContent('15');
+
+    // Tap +1h
+    await user.press(screen.getByTestId('quick-adjust-+1h'));
+    expect(screen.getByTestId('hours-display')).toHaveTextContent('08');
+    expect(screen.getByTestId('minutes-display')).toHaveTextContent('15');
+
+    // Tap -5m
+    await user.press(screen.getByTestId('quick-adjust--5m'));
+    expect(screen.getByTestId('hours-display')).toHaveTextContent('08');
+    expect(screen.getByTestId('minutes-display')).toHaveTextContent('10');
+  });
 });
+

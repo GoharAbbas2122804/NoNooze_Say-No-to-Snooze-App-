@@ -118,6 +118,47 @@ export default function EditAlarmScreen() {
     }
   };
 
+  const QUICK_ADJUST_PRESETS = [
+    { label: '-15m', delta: -15 },
+    { label: '-5m', delta: -5 },
+    { label: '+5m', delta: 5 },
+    { label: '+15m', delta: 15 },
+    { label: '+1h', delta: 60 },
+  ];
+
+  const handleQuickAdjust = (deltaMinutes: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const currentH = parseInt(hours, 10) || (timeFormat === '12h' ? 12 : 0);
+    const currentM = parseInt(minutes, 10) || 0;
+
+    let hour24 = currentH;
+    if (timeFormat === '12h') {
+      if (ampm === 'AM') {
+        hour24 = currentH === 12 ? 0 : currentH;
+      } else {
+        hour24 = currentH === 12 ? 12 : currentH + 12;
+      }
+    }
+
+    const currentTotalMinutes = hour24 * 60 + currentM;
+    const newTotalMinutes = (currentTotalMinutes + deltaMinutes + 24 * 60 * 100) % (24 * 60);
+
+    const newHour24 = Math.floor(newTotalMinutes / 60);
+    const newM = newTotalMinutes % 60;
+
+    if (timeFormat === '12h') {
+      const newPeriod = newHour24 >= 12 ? 'PM' : 'AM';
+      let newHour12 = newHour24 % 12;
+      if (newHour12 === 0) newHour12 = 12;
+      setHours(newHour12.toString().padStart(2, '0'));
+      setMinutes(newM.toString().padStart(2, '0'));
+      setAmpm(newPeriod);
+    } else {
+      setHours(newHour24.toString().padStart(2, '0'));
+      setMinutes(newM.toString().padStart(2, '0'));
+    }
+  };
+
   // Repeat helper
   const getDaysSummary = (): string => {
     if (!days || days.length === 0) return 'Once (No repeat)';
@@ -265,6 +306,7 @@ export default function EditAlarmScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
         scrollEnabled={pageScrollEnabled}
+        nestedScrollEnabled={true}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -363,14 +405,49 @@ export default function EditAlarmScreen() {
           )}
         </View>
 
+        {/* Quick Adjust Preset Pills */}
+        <View style={styles.quickAdjustRow}>
+          {QUICK_ADJUST_PRESETS.map((preset) => (
+            <Pressable
+              key={preset.label}
+              testID={`quick-adjust-${preset.label}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Adjust time by ${preset.label}`}
+              onPress={() => handleQuickAdjust(preset.delta)}
+              style={({ pressed }) => [
+                styles.quickAdjustPill,
+                {
+                  backgroundColor: pressed ? colors.accentYellow : colors.surface,
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.quickAdjustText,
+                  { color: colors.ink, fontFamily: typography.fonts.medium },
+                ]}
+              >
+                {preset.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         {/* Dual Curved Lens Wheel Pickers (Clockwise Swiping, Non-Blocking) */}
-        <View style={styles.wheelWrapper}>
+        <View
+          style={styles.wheelWrapper}
+          onTouchStart={() => setPageScrollEnabled(false)}
+          onTouchEnd={() => setPageScrollEnabled(true)}
+          onTouchCancel={() => setPageScrollEnabled(true)}
+        >
           <WheelPickerColumn
             testID="hours-wheel-picker"
             items={hoursList}
             selectedIndex={selectedHourIndex}
             onSelectIndex={handleHourSelect}
             isLeftColumn={true}
+            label="HOURS"
             onInteractionStart={() => setPageScrollEnabled(false)}
             onInteractionEnd={() => setPageScrollEnabled(true)}
           />
@@ -380,6 +457,7 @@ export default function EditAlarmScreen() {
             selectedIndex={selectedMinuteIndex}
             onSelectIndex={handleMinuteSelect}
             isLeftColumn={false}
+            label="MINUTES"
             onInteractionStart={() => setPageScrollEnabled(false)}
             onInteractionEnd={() => setPageScrollEnabled(true)}
           />
@@ -930,6 +1008,24 @@ const styles = StyleSheet.create({
   digitalPillAmpm: {
     fontSize: 14,
     marginLeft: 8,
+  },
+  quickAdjustRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  quickAdjustPill: {
+    flex: 1,
+    paddingVertical: spacing.xs + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  quickAdjustText: {
+    fontSize: typography.sizes.micro + 1,
   },
   wheelWrapper: {
     flexDirection: 'row',

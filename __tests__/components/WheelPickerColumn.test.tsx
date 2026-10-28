@@ -59,4 +59,18 @@ describe('WheelPickerColumn', () => {
     await user.press(targetItem);
     expect(onSelect).toHaveBeenCalledWith(4);
   });
+
+  it('renders column label when provided', async () => {
+    await render(
+      <WheelPickerColumn
+        items={items}
+        selectedIndex={0}
+        onSelectIndex={jest.fn()}
+        label="HOURS"
+      />
+    );
+
+    expect(screen.getByText('HOURS')).toBeTruthy();
+  });
 });
+
