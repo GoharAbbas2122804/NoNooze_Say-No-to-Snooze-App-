@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { Zap, Lock } from 'lucide-react-native';
+import { Zap, ShieldAlert } from 'lucide-react-native';
 import { useAlarmStore } from '../store/alarm-store';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import {
@@ -24,12 +24,15 @@ import {
   stepRunnerReducer,
 } from '../domain/step-runner';
 import { DISMISSAL_METHODS } from '../domain/dismissal-registry';
-import { colors, spacing, radii, typography, shadows } from '../theme/tokens';
-import { APP_NAME } from '../constants/app';
+import { DotMatrixDisplay } from '../components/alarm/DotMatrixDisplay';
+import { useTheme } from '../theme/ThemeProvider';
+import { notify } from '../ui/notify';
+import { typography, spacing, radii } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
 export default function RingingScreen() {
   useKeepAwake();
+  const { colors } = useTheme();
 
   const { id } = useLocalSearchParams<{ id?: string }>();
   const activeAlarm = useAlarmStore((state) =>
@@ -37,9 +40,10 @@ export default function RingingScreen() {
   );
 
   const fallbackSteps = [{ methodId: 'math' as const, target: 3 }];
-  const alarmSteps = activeAlarm?.steps && activeAlarm.steps.length > 0
-    ? activeAlarm.steps
-    : fallbackSteps;
+  const alarmSteps =
+    activeAlarm?.steps && activeAlarm.steps.length > 0
+      ? activeAlarm.steps
+      : fallbackSteps;
 
   const [state, dispatch] = useReducer(
     stepRunnerReducer,
@@ -47,26 +51,44 @@ export default function RingingScreen() {
     createInitialStepRunnerState
   );
 
-  // Subtle, calm breathing animation on time (motion spec: 2200ms sine cycle)
+  // Live seconds ticker for the dot matrix display
+  const [seconds, setSeconds] = useState(() =>
+    new Date().getSeconds().toString().padStart(2, '0')
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeconds(new Date().getSeconds().toString().padStart(2, '0'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Time parts for dot matrix display
+  const alarmTime = activeAlarm?.time;
+  const [hoursPart, minutesPart] = React.useMemo(() => {
+    if (alarmTime) {
+      return alarmTime.split(':');
+    }
+    const d = new Date();
+    return [
+      d.getHours().toString().padStart(2, '0'),
+      d.getMinutes().toString().padStart(2, '0'),
+    ];
+  }, [alarmTime]);
+
+  // Subtle breathing animation on time (motion spec: 2400ms sine cycle, scale 1.0 to 1.02)
   const breatheScale = useSharedValue(1);
-  const breatheOpacity = useSharedValue(0.92);
 
   useEffect(() => {
     breatheScale.value = withRepeat(
-      withTiming(1.03, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1.02, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
-    breatheOpacity.value = withRepeat(
-      withTiming(1.0, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true
-    );
-  }, [breatheScale, breatheOpacity]);
+  }, [breatheScale]);
 
-  const animatedTimeStyle = useAnimatedStyle(() => ({
+  const animatedBreatheStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breatheScale.value }],
-    opacity: breatheOpacity.value,
   }));
 
   // Disable Android hardware back button
@@ -82,6 +104,7 @@ export default function RingingScreen() {
   useEffect(() => {
     if (state.status === 'completed') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      notify.success('Alarm dismissed!');
       getAlarmScheduler().stopRinging().catch(() => {});
       useAlarmStore.getState().setActiveAlarmId(null);
       router.replace('/success');
@@ -93,78 +116,94 @@ export default function RingingScreen() {
   const ChallengeComponent = methodDef?.Component;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Alarm Time & Label */}
-        <View style={styles.header}>
-          <View style={styles.ringingPill}>
-            <Zap size={14} color={colors.accent} />
-            <Text style={styles.ringingPillText}>{APP_NAME} ALARM RINGING</Text>
+        {/* Top Status Pill: ALARM RINGING & NO SNOOZE */}
+        <View style={styles.topStatusRow}>
+          <View style={[styles.statusPill, { backgroundColor: colors.surface }]}>
+            <Zap size={14} color={colors.accentYellow} />
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: colors.ink, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              ALARM RINGING
+            </Text>
           </View>
 
-          <Animated.View style={[styles.timeWrapper, animatedTimeStyle]}>
-            <Text style={styles.alarmTimeText}>
-              {activeAlarm?.time || '07:00'}
+          <View style={[styles.noSnoozeBadge, { backgroundColor: 'rgba(229, 55, 43, 0.12)' }]}>
+            <ShieldAlert size={14} color={colors.error} />
+            <Text
+              style={[
+                styles.noSnoozeText,
+                { color: colors.error, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              No snooze allowed
             </Text>
-          </Animated.View>
+          </View>
+        </View>
 
-          <Text style={styles.alarmLabelText}>
+        {/* Breathing Dot-Matrix Clock (Inspiration 01) */}
+        <Animated.View style={[styles.clockWrapper, animatedBreatheStyle]}>
+          <DotMatrixDisplay
+            hours={hoursPart || '07'}
+            minutes={minutesPart || '00'}
+            seconds={seconds}
+            dotSize={6}
+            gap={3}
+          />
+        </Animated.View>
+
+        {/* Alarm Time (for screen reading & tests) & Label */}
+        <View style={styles.labelSection}>
+          <Text
+            style={[
+              styles.timeSubtitle,
+              { color: colors.ink, fontFamily: typography.fonts.bold },
+            ]}
+          >
+            {activeAlarm?.time || '07:00'}
+          </Text>
+          <Text
+            style={[
+              styles.alarmLabel,
+              { color: colors.muted, fontFamily: typography.fonts.medium },
+            ]}
+          >
             {activeAlarm?.label || 'Wake Up!'}
           </Text>
         </View>
 
         {/* Step Runner Progress Indicator */}
         {state.status === 'running' && (
-          <View style={styles.stepProgressContainer}>
-            <View style={styles.stepProgressHeader}>
-              <View style={styles.stepCounterBadge}>
-                <Text style={styles.stepCounterText}>
+          <View style={[styles.stepCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepBadge, { backgroundColor: colors.accentYellow }]}>
+                <Text style={[styles.stepBadgeText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
                   Step {state.stepIndex + 1} of {state.totalSteps}
                 </Text>
               </View>
-              <Text style={styles.stepMethodText}>{methodDef?.title}</Text>
+              <Text style={[styles.stepTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                {methodDef?.title}
+              </Text>
             </View>
 
-            {/* Step Segments */}
-            <View style={styles.segmentsRow}>
-              {state.steps.map((_, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.segment,
-                    idx < state.stepIndex && styles.segmentCompleted,
-                    idx === state.stepIndex && styles.segmentActive,
-                  ]}
-                />
-              ))}
-            </View>
+            {/* Active Challenge Component */}
+            {ChallengeComponent && currentStep && (
+              <ChallengeComponent
+                step={currentStep}
+                onProgress={() => dispatch({ type: 'PROGRESS' })}
+                onComplete={() => dispatch({ type: 'PROGRESS', increment: currentStep.target })}
+              />
+            )}
           </View>
         )}
-
-        {/* Challenge Area */}
-        <View style={styles.challengeArea}>
-          {ChallengeComponent && currentStep ? (
-            <ChallengeComponent
-              step={currentStep}
-              onProgress={() => dispatch({ type: 'PROGRESS' })}
-              onComplete={() => dispatch({ type: 'PROGRESS' })}
-            />
-          ) : (
-            <Text style={styles.waitingText}>Preparing challenge...</Text>
-          )}
-        </View>
-
-        {/* Unskippable Notice */}
-        <View style={styles.footerNotice}>
-          <Lock size={14} color={colors.textMuted} />
-          <Text style={styles.footerNoticeText}>
-            No snooze allowed. Complete all challenges to dismiss.
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -173,119 +212,81 @@ export default function RingingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.base,
+    paddingHorizontal: spacing.base,
     paddingBottom: spacing.xxl,
     alignItems: 'center',
-    gap: spacing.lg,
   },
-  header: {
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  ringingPill: {
+  topStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.accentGlow,
-    paddingHorizontal: spacing.base,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    marginBottom: spacing.xs,
-  },
-  ringingPillText: {
-    color: colors.accent,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 1,
-  },
-  timeWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alarmTimeText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.hero,
-    fontWeight: typography.weights.black,
-    letterSpacing: -1.5,
-  },
-  alarmLabelText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodyLarge,
-    fontWeight: typography.weights.medium,
-  },
-  stepProgressContainer: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    gap: spacing.sm,
-    ...shadows.card,
-  },
-  stepProgressHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    width: '100%',
+    marginVertical: spacing.md,
   },
-  stepCounterBadge: {
-    backgroundColor: 'rgba(112, 244, 100, 0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radii.pill,
-  },
-  stepCounterText: {
-    color: colors.primary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  stepMethodText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.semibold,
-  },
-  segmentsRow: {
+  statusPill: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
-    height: 6,
-    width: '100%',
-  },
-  segment: {
-    flex: 1,
-    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderRadius: radii.pill,
   },
-  segmentActive: {
-    backgroundColor: colors.primary,
-    ...shadows.glowLime,
+  statusPillText: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.8,
   },
-  segmentCompleted: {
-    backgroundColor: colors.success,
+  noSnoozeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
   },
-  challengeArea: {
-    width: '100%',
+  noSnoozeText: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.5,
+  },
+  clockWrapper: {
+    marginVertical: spacing.sm,
     alignItems: 'center',
   },
-  waitingText: {
-    color: colors.textSecondary,
+  labelSection: {
+    alignItems: 'center',
+    marginBottom: spacing.base,
+  },
+  timeSubtitle: {
+    fontSize: typography.sizes.h2,
+    letterSpacing: -0.5,
+  },
+  alarmLabel: {
     fontSize: typography.sizes.body,
+    marginTop: 2,
   },
-  footerNotice: {
+  stepCard: {
+    width: '100%',
+    borderRadius: radii.card,
+    padding: spacing.base,
+    alignItems: 'center',
+  },
+  stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.base,
+    gap: spacing.sm,
+    marginBottom: spacing.base,
+    alignSelf: 'flex-start',
   },
-  footerNoticeText: {
-    color: colors.textMuted,
+  stepBadge: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+  },
+  stepBadgeText: {
     fontSize: typography.sizes.caption,
-    textAlign: 'center',
+  },
+  stepTitle: {
+    fontSize: typography.sizes.bodyLarge,
   },
 });
