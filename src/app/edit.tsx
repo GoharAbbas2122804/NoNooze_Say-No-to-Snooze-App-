@@ -3,22 +3,25 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { X, Check, Bell, Zap, Repeat, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useAlarmStore } from '../store/alarm-store';
 import { DayOfWeek, Step } from '../domain/types';
 import { parseTo12Hour, formatTo24Hour } from '../domain/time-format';
-import { DaySelector } from '../components/alarm/DaySelector';
-import { StepBuilder } from '../components/alarm/StepBuilder';
-import { colors, spacing, radii, typography, shadows } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeProvider';
+import { WheelPickerColumn } from '../components/alarm/WheelPicker';
+import { RoundButton } from '../components/ui/RoundButton';
+import { notify } from '../ui/notify';
+import { typography, spacing, radii, iconSizes } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
 export default function EditAlarmScreen() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = Boolean(id);
 
@@ -53,17 +56,45 @@ export default function EditAlarmScreen() {
   const [steps, setSteps] = useState<Step[]>(
     existingAlarm?.steps || [{ methodId: 'math', target: 3 }]
   );
-  const [errorText, setErrorText] = useState<string | null>(null);
+  const [soundName] = useState(existingAlarm?.sound || 'Wake up');
+
+  // Descending Hours list (e.g. 12, 11, 10... 01 for 12h; 23, 22... 00 for 24h)
+  const hoursList = React.useMemo(() => {
+    if (timeFormat === '12h') {
+      return [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) =>
+        n.toString().padStart(2, '0')
+      );
+    }
+    return Array.from({ length: 24 }, (_, i) => (23 - i).toString().padStart(2, '0'));
+  }, [timeFormat]);
+
+  // Descending Minutes list (e.g. 59, 58, 57... 00)
+  const minutesList = React.useMemo(() => {
+    return Array.from({ length: 60 }, (_, i) => (59 - i).toString().padStart(2, '0'));
+  }, []);
+
+  const selectedHourIndex = Math.max(0, hoursList.indexOf(hours));
+  const selectedMinuteIndex = Math.max(0, minutesList.indexOf(minutes));
+
+  const handleHourSelect = (index: number) => {
+    if (hoursList[index]) {
+      setHours(hoursList[index]);
+    }
+  };
+
+  const handleMinuteSelect = (index: number) => {
+    if (minutesList[index]) {
+      setMinutes(minutesList[index]);
+    }
+  };
 
   const adjustHour = (delta: number) => {
     Haptics.selectionAsync().catch(() => {});
     const current = parseInt(hours, 10) || 1;
     if (timeFormat === '12h') {
-      // 1 to 12
       const next = (((current - 1 + delta) % 12) + 12) % 12 + 1;
       setHours(next.toString().padStart(2, '0'));
     } else {
-      // 0 to 23
       const next = (current + delta + 24) % 24;
       setHours(next.toString().padStart(2, '0'));
     }
@@ -76,10 +107,37 @@ export default function EditAlarmScreen() {
     setMinutes(next.toString().padStart(2, '0'));
   };
 
-  const handleSave = () => {
-    setErrorText(null);
+  const getDaysSummary = (): string => {
+    if (!days || days.length === 0) return 'No (Once)';
+    if (days.length === 7) return 'Every day';
+    if (days.length === 5 && [1, 2, 3, 4, 5].every((d) => days.includes(d as any))) {
+      return 'Weekdays';
+    }
+    if (days.length === 2 && [0, 6].every((d) => days.includes(d as any))) {
+      return 'Weekends';
+    }
+    return `${days.length} days`;
+  };
 
-    // Canonical 24-hour time string
+  const toggleDayCycle = () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (days.length === 0) {
+      setDays([1, 2, 3, 4, 5]); // Weekdays
+    } else if (days.length === 5) {
+      setDays([0, 1, 2, 3, 4, 5, 6]); // Everyday
+    } else {
+      setDays([]); // Once
+    }
+  };
+
+  const cycleChallengeTarget = () => {
+    Haptics.selectionAsync().catch(() => {});
+    const currentTarget = steps[0]?.target || 3;
+    const nextTarget = currentTarget >= 5 ? 1 : currentTarget + 1;
+    setSteps([{ methodId: 'math', target: nextTarget }]);
+  };
+
+  const handleSave = () => {
     const time =
       timeFormat === '12h'
         ? formatTo24Hour(
@@ -99,8 +157,7 @@ export default function EditAlarmScreen() {
       });
 
       if (!result.success) {
-        setErrorText(result.errors?.join('\n') || 'Failed to update alarm');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        notify.error(result.errors?.join('\n') || 'Failed to update alarm');
         return;
       }
     } else {
@@ -110,184 +167,263 @@ export default function EditAlarmScreen() {
         label,
         steps,
         enabled: true,
-        sound: 'default',
+        sound: soundName,
       });
 
       if (!result.success) {
-        setErrorText(result.errors?.join('\n') || 'Failed to save alarm');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        notify.error(result.errors?.join('\n') || 'Failed to save alarm');
         return;
       }
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    notify.success(`Alarm set for ${time}`);
     router.back();
   };
 
   const handleDelete = () => {
-    if (!id) return;
-    Alert.alert('Delete Alarm', 'Are you sure you want to delete this alarm?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteAlarm(id);
-          router.back();
-        },
+    if (!id || !existingAlarm) return;
+    const savedCopy = { ...existingAlarm };
+    deleteAlarm(id);
+    notify.action('Alarm deleted', {
+      label: 'Undo',
+      onPress: () => {
+        addAlarm(savedCopy);
       },
-    ]);
+    });
+    router.back();
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          testID="cancel-edit-button"
-          onPress={() => router.back()}
-          style={styles.headerButton}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>
-          {isEditing ? 'Edit Alarm' : 'New Alarm'}
-        </Text>
-
-        <TouchableOpacity
-          testID="save-alarm-button"
-          onPress={handleSave}
-          style={styles.saveButton}
-        >
-          <Text style={styles.saveText}>Save</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Error Banner */}
-        {errorText && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{errorText}</Text>
-          </View>
-        )}
-
-        {/* Time Picker Card (Supports 12-hour with AM/PM & 24-hour) */}
-        <View style={styles.timeCard}>
-          {/* Hours */}
-          <View style={styles.timeColumn}>
-            <TouchableOpacity
-              testID="hour-up"
-              style={styles.adjustBtn}
-              onPress={() => adjustHour(1)}
-              accessibilityLabel="Increase hour"
-            >
-              <Text style={styles.adjustBtnText}>▲</Text>
-            </TouchableOpacity>
-            <Text style={styles.timeDigit} testID="hours-display">
-              {hours}
-            </Text>
-            <TouchableOpacity
-              testID="hour-down"
-              style={styles.adjustBtn}
-              onPress={() => adjustHour(-1)}
-              accessibilityLabel="Decrease hour"
-            >
-              <Text style={styles.adjustBtnText}>▼</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.colonText}>:</Text>
-
-          {/* Minutes */}
-          <View style={styles.timeColumn}>
-            <TouchableOpacity
-              testID="minute-up"
-              style={styles.adjustBtn}
-              onPress={() => adjustMinute(5)}
-              accessibilityLabel="Increase minute"
-            >
-              <Text style={styles.adjustBtnText}>▲</Text>
-            </TouchableOpacity>
-            <Text style={styles.timeDigit} testID="minutes-display">
-              {minutes}
-            </Text>
-            <TouchableOpacity
-              testID="minute-down"
-              style={styles.adjustBtn}
-              onPress={() => adjustMinute(-5)}
-              accessibilityLabel="Decrease minute"
-            >
-              <Text style={styles.adjustBtnText}>▼</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* AM / PM Segmented Selector for 12-hour format */}
-          {timeFormat === '12h' && (
-            <View style={styles.ampmColumn}>
-              <TouchableOpacity
-                testID="period-am"
-                style={[styles.ampmBtn, ampm === 'AM' && styles.ampmBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setAmpm('AM');
-                }}
-                activeOpacity={0.7}
-                accessibilityLabel="Set AM"
-              >
-                <Text style={[styles.ampmText, ampm === 'AM' && styles.ampmTextActive]}>
-                  AM
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="period-pm"
-                style={[styles.ampmBtn, ampm === 'PM' && styles.ampmBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setAmpm('PM');
-                }}
-                activeOpacity={0.7}
-                accessibilityLabel="Set PM"
-              >
-                <Text style={[styles.ampmText, ampm === 'PM' && styles.ampmTextActive]}>
-                  PM
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surfaceAlt }]}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title Header */}
+        <View style={styles.headerRow}>
+          <Text style={[styles.screenTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+            {isEditing ? 'Edit Alarm' : 'Choose time'}
+          </Text>
+          {isEditing ? (
+            <Pressable testID="delete-alarm-button" onPress={handleDelete}>
+              <Text style={[styles.deleteText, { color: colors.error, fontFamily: typography.fonts.medium }]}>
+                Delete
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        {/* Day Selector */}
-        <DaySelector selectedDays={days} onChange={setDays} />
+        {/* 12h AM / PM Toggle Row */}
+        {timeFormat === '12h' ? (
+          <View style={styles.ampmRow}>
+            <Pressable
+              testID="period-am"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setAmpm('AM');
+              }}
+              style={[
+                styles.ampmButton,
+                {
+                  backgroundColor: ampm === 'AM' ? colors.ink : colors.surface,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.ampmButtonText,
+                  {
+                    color: ampm === 'AM' ? colors.background : colors.muted,
+                    fontFamily: typography.fonts.bold,
+                  },
+                ]}
+              >
+                AM
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="period-pm"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setAmpm('PM');
+              }}
+              style={[
+                styles.ampmButton,
+                {
+                  backgroundColor: ampm === 'PM' ? colors.ink : colors.surface,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.ampmButtonText,
+                  {
+                    color: ampm === 'PM' ? colors.background : colors.muted,
+                    fontFamily: typography.fonts.bold,
+                  },
+                ]}
+              >
+                PM
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-        {/* Label Input */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Label</Text>
-          <TextInput
-            testID="alarm-label-input"
-            style={styles.textInput}
-            value={label}
-            onChangeText={setLabel}
-            placeholder="e.g. Work, Morning Run"
-            placeholderTextColor={colors.textMuted}
-            maxLength={30}
+        {/* Dual Curved Lens Wheel Pickers */}
+        <View style={styles.wheelWrapper}>
+          <WheelPickerColumn
+            items={hoursList}
+            selectedIndex={selectedHourIndex}
+            onSelectIndex={handleHourSelect}
+            isLeftColumn={true}
+          />
+          <WheelPickerColumn
+            items={minutesList}
+            selectedIndex={selectedMinuteIndex}
+            onSelectIndex={handleMinuteSelect}
+            isLeftColumn={false}
           />
         </View>
 
-        {/* Dismissal Step Builder */}
-        <StepBuilder steps={steps} onChange={setSteps} />
+        {/* Accessible Quick Stepper Controls */}
+        <View style={styles.stepperContainer}>
+          <View style={styles.stepperGroup}>
+            <RoundButton
+              testID="hour-up"
+              accessibilityLabel="Increase hour"
+              variant="surface"
+              size={44}
+              onPress={() => adjustHour(1)}
+            >
+              <ChevronUp size={20} color={colors.ink} />
+            </RoundButton>
+            <Text
+              testID="hours-display"
+              style={[styles.stepperDisplayText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+            >
+              {hours}
+            </Text>
+            <RoundButton
+              testID="hour-down"
+              accessibilityLabel="Decrease hour"
+              variant="surface"
+              size={44}
+              onPress={() => adjustHour(-1)}
+            >
+              <ChevronDown size={20} color={colors.ink} />
+            </RoundButton>
+          </View>
 
-        {/* Delete Button (when editing) */}
-        {isEditing && (
-          <TouchableOpacity
-            testID="delete-alarm-button"
-            style={styles.deleteAlarmBtn}
-            onPress={handleDelete}
+          <View style={styles.stepperGroup}>
+            <RoundButton
+              testID="minute-up"
+              accessibilityLabel="Increase minute"
+              variant="surface"
+              size={44}
+              onPress={() => adjustMinute(5)}
+            >
+              <ChevronUp size={20} color={colors.ink} />
+            </RoundButton>
+            <Text
+              testID="minutes-display"
+              style={[styles.stepperDisplayText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+            >
+              {minutes}
+            </Text>
+            <RoundButton
+              testID="minute-down"
+              accessibilityLabel="Decrease minute"
+              variant="surface"
+              size={44}
+              onPress={() => adjustMinute(-5)}
+            >
+              <ChevronDown size={20} color={colors.ink} />
+            </RoundButton>
+          </View>
+        </View>
+
+        {/* Alarm Label Input */}
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+          <TextInput
+            testID="alarm-label-input"
+            value={label}
+            onChangeText={setLabel}
+            placeholder="Alarm name (optional)"
+            placeholderTextColor={colors.muted}
+            style={[styles.textInput, { color: colors.ink, fontFamily: typography.fonts.medium }]}
+          />
+        </View>
+
+        {/* Three Option Row: Sound / Challenge / Repeat (Strictly NO snooze) */}
+        <View style={styles.optionRow}>
+          {/* Sound */}
+          <View style={[styles.optionCard, { backgroundColor: colors.surface }]}>
+            <Bell size={iconSizes.sm} color={colors.ink} strokeWidth={2} />
+            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+              Sound
+            </Text>
+            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+              {soundName}
+            </Text>
+          </View>
+
+          {/* Challenge (replaces Snooze) */}
+          <Pressable
+            onPress={cycleChallengeTarget}
+            style={[styles.optionCard, { backgroundColor: colors.surface }]}
           >
-            <Text style={styles.deleteAlarmText}>Delete Alarm</Text>
-          </TouchableOpacity>
-        )}
+            <Zap size={iconSizes.sm} color={colors.accentYellow} strokeWidth={2} />
+            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+              Challenge
+            </Text>
+            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+              Math ({steps[0]?.target || 3}x)
+            </Text>
+          </Pressable>
+
+          {/* Repeat */}
+          <Pressable
+            onPress={toggleDayCycle}
+            style={[styles.optionCard, { backgroundColor: colors.surface }]}
+          >
+            <Repeat size={iconSizes.sm} color={colors.ink} strokeWidth={2} />
+            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+              Repeat
+            </Text>
+            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+              {getDaysSummary()}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
+
+      {/* Bottom Bar: Round X (Left), "Choose time" (Center), Round Check (Right) */}
+      <View style={[styles.bottomBar, { backgroundColor: colors.surfaceAlt }]}>
+        <RoundButton
+          testID="cancel-edit-button"
+          accessibilityLabel="Cancel editing alarm"
+          variant="surface"
+          size={56}
+          onPress={() => router.back()}
+        >
+          <X size={iconSizes.md} color={colors.ink} strokeWidth={2.2} />
+        </RoundButton>
+
+        <Text style={[styles.bottomBarLabel, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+          Choose time
+        </Text>
+
+        <RoundButton
+          testID="save-alarm-button"
+          accessibilityLabel="Save Alarm"
+          variant="ink"
+          size={56}
+          onPress={handleSave}
+        >
+          <Check size={iconSizes.md} color={colors.background} strokeWidth={2.6} />
+        </RoundButton>
+      </View>
     </SafeAreaView>
   );
 }
@@ -295,154 +431,102 @@ export default function EditAlarmScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
-  header: {
+  container: {
+    paddingHorizontal: spacing.base,
+    paddingBottom: 100,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
+    marginVertical: spacing.md,
   },
-  headerButton: {
-    paddingVertical: spacing.xs,
+  screenTitle: {
+    fontSize: typography.sizes.h2,
+    letterSpacing: -0.6,
   },
-  cancelText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.body,
-  },
-  headerTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h3,
-    fontWeight: typography.weights.bold,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.pill,
-    ...shadows.glowLime,
-  },
-  saveText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.bold,
-  },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.xl,
-    paddingBottom: 60,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    padding: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  errorBannerText: {
-    color: colors.error,
+  deleteText: {
     fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
   },
-  timeCard: {
+  ampmRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radii.card,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    ...shadows.card,
-    gap: spacing.md,
-  },
-  timeColumn: {
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  adjustBtn: {
-    padding: spacing.sm,
-  },
-  adjustBtnText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  timeDigit: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.hero,
-    fontWeight: typography.weights.bold,
-    letterSpacing: -1,
-    minWidth: 80,
-    textAlign: 'center',
-  },
-  colonText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.hero,
-    fontWeight: typography.weights.light,
-    marginTop: -spacing.md,
-  },
-  ampmColumn: {
-    marginLeft: spacing.sm,
-    gap: spacing.xs + 2,
-  },
-  ampmBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    alignItems: 'center',
-    minWidth: 50,
-  },
-  ampmBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...shadows.glowLime,
-  },
-  ampmText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  ampmTextActive: {
-    color: colors.textInverse,
-    fontWeight: typography.weights.black,
-  },
-  fieldContainer: {
+    marginBottom: spacing.md,
     gap: spacing.sm,
   },
-  fieldLabel: {
-    color: colors.textSecondary,
+  ampmButton: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+  },
+  ampmButtonText: {
     fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
+  },
+  wheelWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: spacing.sm,
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: spacing.sm,
+  },
+  stepperGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stepperDisplayText: {
+    fontSize: typography.sizes.h3,
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  inputCard: {
+    borderRadius: radii.card,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
+    marginVertical: spacing.sm,
   },
   textInput: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    fontSize: typography.sizes.body,
+    paddingVertical: spacing.xs,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.base,
+  },
+  optionCard: {
+    flex: 1,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  optionLabel: {
+    fontSize: typography.sizes.caption,
+    marginTop: spacing.xs,
+  },
+  optionValue: {
+    fontSize: typography.sizes.micro,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.md,
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
-  deleteAlarmBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: radii.xl,
-    paddingVertical: spacing.base,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    marginTop: spacing.md,
-  },
-  deleteAlarmText: {
-    color: colors.error,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
+  bottomBarLabel: {
+    fontSize: typography.sizes.bodyLarge,
+    letterSpacing: -0.3,
   },
 });
