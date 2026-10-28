@@ -1,48 +1,110 @@
 /**
  * Design tokens extracted directly from design inspiration mockups and design-brief.md.
- * Strictly follow these tokens across all UI components - no inline hex codes.
+ * Flat, calm, editorial, Nothing-OS minimal styling. Strictly no shadows or gradients.
  */
 
-export const colors = {
-  background: '#0B101E',
-  backgroundElevated: '#10172A',
-  surface: '#141A2D',
-  surfaceElevated: '#1C243E',
-  surfaceActive: '#222D4D',
-  border: '#232E4E',
-  borderSubtle: 'rgba(255, 255, 255, 0.08)',
-  borderFocus: '#70F464',
+export interface ColorPalette {
+  background: string;
+  surface: string;
+  surfaceAlt: string;
+  surfaceElevated: string;
+  surfaceActive: string;
+  ink: string;
+  muted: string;
+  accentYellow: string;
+  markerRed: string;
+  dotInactive: string;
+  border: string;
+  borderSubtle: string;
+  borderFocus: string;
+  disabled: string;
+  success: string;
+  error: string;
+  warning: string;
+  // Controls & Switches
+  switchTrackOn: string;
+  switchTrackOff: string;
+  switchThumb: string;
+  // Backwards compatibility aliases
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  textInverse: string;
+  primary: string;
+  primaryGlow: string;
+  accent: string;
+  accentGlow: string;
+  indigoGlow: string;
+}
 
-  // Brand Accents
-  primary: '#70F464', // Neon lime from inspirations
-  primaryGlow: 'rgba(112, 244, 100, 0.25)',
-  accent: '#FF9500', // Amber/orange FAB & secondary
-  accentGlow: 'rgba(255, 149, 0, 0.25)',
-  indigoGlow: '#4F46E5',
-
-  // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  textInverse: '#0B101E',
-
-  // Status
-  success: '#22C55E',
-  error: '#EF4444',
+export const lightColors: ColorPalette = {
+  background: '#C4C5C1',
+  surface: '#D4D5D2',
+  surfaceAlt: '#B0B1AB',
+  surfaceElevated: '#DCDDD9',
+  surfaceActive: '#BEBFB9',
+  ink: '#0D0D0D',
+  muted: '#8E8F89',
+  accentYellow: '#F2E63A',
+  markerRed: '#E5372B',
+  dotInactive: 'rgba(13, 13, 13, 0.08)',
+  border: 'rgba(13, 13, 13, 0.12)',
+  borderSubtle: 'rgba(13, 13, 13, 0.08)',
+  borderFocus: '#F2E63A',
+  disabled: '#A5A6A0',
+  success: '#10B981',
+  error: '#E5372B',
   warning: '#F59E0B',
-  disabled: '#1E293B',
-
-  // Controls
-  switchTrackOn: '#70F464',
-  switchTrackOff: '#1E293B',
-  switchThumb: '#FFFFFF',
-
-  // Gradients
-  cardGradient: ['#1C243E', '#141A2D'] as const,
-  screenGradient: ['#0B101E', '#10172A', '#131A30'] as const,
-  accentGradient: ['#FF9500', '#F59E0B'] as const,
-  primaryGradient: ['#70F464', '#4ADE80'] as const,
+  switchTrackOn: '#F2E63A',
+  switchTrackOff: '#B0B1AB',
+  switchThumb: '#0D0D0D',
+  // Aliases
+  textPrimary: '#0D0D0D',
+  textSecondary: '#646560',
+  textMuted: '#8E8F89',
+  textInverse: '#EDEDE8',
+  primary: '#F2E63A',
+  primaryGlow: 'transparent',
+  accent: '#F2E63A',
+  accentGlow: 'transparent',
+  indigoGlow: '#4F46E5',
 };
+
+export const darkColors: ColorPalette = {
+  background: '#0B0B0A',
+  surface: '#171716',
+  surfaceAlt: '#222220',
+  surfaceElevated: '#1E1E1C',
+  surfaceActive: '#2C2C29',
+  ink: '#EDEDE8',
+  muted: '#7C7D77',
+  accentYellow: '#F2E63A',
+  markerRed: '#E5372B',
+  dotInactive: 'rgba(237, 237, 232, 0.08)',
+  border: 'rgba(237, 237, 232, 0.14)',
+  borderSubtle: 'rgba(237, 237, 232, 0.08)',
+  borderFocus: '#F2E63A',
+  disabled: '#333330',
+  success: '#34D399',
+  error: '#EF4444',
+  warning: '#FBBF24',
+  switchTrackOn: '#F2E63A',
+  switchTrackOff: '#2A2A28',
+  switchThumb: '#0B0B0A',
+  // Aliases
+  textPrimary: '#EDEDE8',
+  textSecondary: '#A5A6A0',
+  textMuted: '#7C7D77',
+  textInverse: '#0B0B0A',
+  primary: '#F2E63A',
+  primaryGlow: 'transparent',
+  accent: '#F2E63A',
+  accentGlow: 'transparent',
+  indigoGlow: '#4F46E5',
+};
+
+/** Default colors export pointing to dark (backwards compatibility) */
+export const colors = darkColors;
 
 export const spacing = {
   xs: 4,
@@ -63,14 +125,24 @@ export const radii = {
   lg: 16,
   xl: 20,
   xxl: 24,
-  card: 22,
-  pill: 9999,
+  card: 28,
+  round: 56,
+  pill: 999,
 };
 
 export const typography = {
+  fonts: {
+    light: 'InterTight_300Light',
+    regular: 'InterTight_400Regular',
+    medium: 'InterTight_500Medium',
+    bold: 'InterTight_700Bold',
+    dot: 'Doto_700Bold',
+  },
   sizes: {
-    hero: 56,
-    time: 44,
+    giantClock: 76,
+    display: 56,
+    hero: 44,
+    time: 36,
     h1: 32,
     h2: 24,
     h3: 20,
@@ -90,41 +162,19 @@ export const typography = {
   } as const,
 };
 
+// Anti-slop: zero shadows across flat Nothing-OS aesthetic
 export const shadows = {
-  card: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  glowLime: {
-    shadowColor: '#70F464',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  glowAccent: {
-    shadowColor: '#FF9500',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  glowSubtle: {
-    shadowColor: '#232E4E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
+  card: {},
+  glowLime: {},
+  glowAccent: {},
+  glowSubtle: {},
 };
 
 export const iconSizes = {
-  sm: 16,
-  md: 20,
-  lg: 24,
+  xs: 14,
+  sm: 18,
+  md: 22,
+  lg: 26,
   xl: 32,
 };
 
@@ -132,7 +182,7 @@ export const animation = {
   fast: 150,
   normal: 240,
   slow: 320,
-  breathe: 2200,
+  breathe: 2400,
 };
 
 export const hitSlop = {

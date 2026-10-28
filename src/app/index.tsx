@@ -3,67 +3,63 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import {
-  Sliders,
-  Plus,
-  ShieldCheck,
-  Clock,
-  Settings,
-  BellOff,
-  MoreVertical,
-} from 'lucide-react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+} from 'react-native-reanimated';
 import { useAlarmStore } from '../store/alarm-store';
+import { useTheme } from '../theme/ThemeProvider';
+import { TwoToneTitle } from '../components/ui/TwoToneTitle';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { AlarmTimeline } from '../components/alarm/AlarmTimeline';
+import { WeekdayStrip } from '../components/alarm/WeekdayStrip';
 import { AlarmCard } from '../components/alarm/AlarmCard';
-import { formatDisplayTime } from '../domain/time-format';
-import { colors, spacing, radii, typography, shadows, iconSizes } from '../theme/tokens';
+import { PillBar } from '../components/alarm/PillBar';
+import { DayOfWeek } from '../domain/types';
 import { getNextTriggerDate } from '../domain/next-trigger';
+import { GSAPEasings } from '../motion/ease';
+import { typography, spacing } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
-const DAYS_HEADER = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-export default function AlarmListScreen() {
+export default function HomeScreen() {
+  const { colors } = useTheme();
   const alarms = useAlarmStore((state) => state.alarms);
   const toggleAlarm = useAlarmStore((state) => state.toggleAlarm);
   const timeFormat = useAlarmStore((state) => state.timeFormat);
 
-  // Live system time for hero clock respecting 12h / 24h format
-  const [currentTime, setCurrentTime] = useState(() => {
-    const d = new Date();
-    const h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, '0');
-    if (timeFormat === '24h') {
-      return { time: `${h.toString().padStart(2, '0')}:${m}`, ampm: '' };
-    }
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const displayH = h % 12 === 0 ? 12 : h % 12;
-    return { time: `${displayH}:${m}`, ampm };
-  });
+  // Live system time for giant clock
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const update = () => {
-      const d = new Date();
-      const h = d.getHours();
-      const m = d.getMinutes().toString().padStart(2, '0');
-      if (timeFormat === '24h') {
-        setCurrentTime({ time: `${h.toString().padStart(2, '0')}:${m}`, ampm: '' });
-      } else {
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const displayH = h % 12 === 0 ? 12 : h % 12;
-        setCurrentTime({ time: `${displayH}:${m}`, ampm });
-      }
-    };
-
-    update();
-    const timer = setInterval(update, 1000);
+    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
-  }, [timeFormat]);
+  }, []);
 
-  // Find next upcoming alarm among enabled ones
+  const hoursString = React.useMemo(() => {
+    const h = now.getHours();
+    if (timeFormat === '24h') {
+      return h.toString().padStart(2, '0');
+    }
+    const displayH = h % 12 === 0 ? 12 : h % 12;
+    return displayH.toString().padStart(2, '0');
+  }, [now, timeFormat]);
+
+  const minutesString = React.useMemo(() => {
+    return now.getMinutes().toString().padStart(2, '0');
+  }, [now]);
+
+  // Current selected day in WeekdayStrip (defaults to current system day)
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(() => {
+    return now.getDay() as DayOfWeek;
+  });
+
+  // Next upcoming alarm
   const nextAlarm = React.useMemo(() => {
     const enabled = alarms.filter((a) => a.enabled);
     if (enabled.length === 0) return null;
@@ -76,6 +72,70 @@ export default function AlarmListScreen() {
     withNextDates.sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
     return withNextDates[0];
   }, [alarms]);
+
+  // Countdown caption text
+  const countdownCaption = React.useMemo(() => {
+    if (!nextAlarm) return 'No alarms scheduled';
+    const diffMs = nextAlarm.nextDate.getTime() - now.getTime();
+    if (diffMs <= 0) return 'Ringing shortly';
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+
+    if (hours > 0) {
+      return `The next alarm clock in ${hours}h ${mins}m`;
+    }
+    return `The next alarm clock in ${mins} min`;
+  }, [nextAlarm, now]);
+
+  // Active days with enabled alarms
+  const activeAlarmDays = React.useMemo(() => {
+    const daysSet = new Set<DayOfWeek>();
+    alarms
+      .filter((a) => a.enabled)
+      .forEach((a) => {
+        a.days.forEach((d) => daysSet.add(d));
+      });
+    return Array.from(daysSet);
+  }, [alarms]);
+
+  // Motion choreography (GSAP power3.out stagger under 900ms)
+  const headerOpacity = useSharedValue(0);
+  const heroTranslateY = useSharedValue(20);
+  const timelineOpacity = useSharedValue(0);
+  const cardsOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    headerOpacity.value = withTiming(1, {
+      duration: 350,
+      easing: GSAPEasings.power3.out,
+    });
+    heroTranslateY.value = withDelay(
+      80,
+      withTiming(0, { duration: 450, easing: GSAPEasings.power3.out })
+    );
+    timelineOpacity.value = withDelay(
+      180,
+      withTiming(1, { duration: 400, easing: GSAPEasings.power3.out })
+    );
+    cardsOpacity.value = withDelay(
+      280,
+      withTiming(1, { duration: 450, easing: GSAPEasings.power3.out })
+    );
+  }, [headerOpacity, heroTranslateY, timelineOpacity, cardsOpacity]);
+
+  const animatedHeroStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: heroTranslateY.value }],
+  }));
+
+  const animatedTimelineStyle = useAnimatedStyle(() => ({
+    opacity: timelineOpacity.value,
+  }));
+
+  const animatedCardsStyle = useAnimatedStyle(() => ({
+    opacity: cardsOpacity.value,
+  }));
 
   const handleAddAlarm = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -92,187 +152,108 @@ export default function AlarmListScreen() {
     router.push('/permissions');
   };
 
-  const handleOpenGallery = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/gallery');
+  const handleToggle = (id: string) => {
+    toggleAlarm(id);
   };
 
-  // Compute active days among enabled alarms for hero display
-  const activeDaysSet = React.useMemo(() => {
-    const set = new Set<number>();
-    alarms.filter((a) => a.enabled).forEach((a) => a.days?.forEach((d) => set.add(d)));
-    return set;
-  }, [alarms]);
-
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
-        {/* Top App Bar (Inspiration Match: sliders left, orange + right) */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            testID="permissions-header-button"
-            style={styles.iconCircleButton}
-            onPress={handleOpenPermissions}
-            activeOpacity={0.7}
-            accessibilityLabel="Settings"
-          >
-            <Sliders size={iconSizes.md} color={colors.textSecondary} />
-          </TouchableOpacity>
+        {/* Header: TwoTone "Alarm" Title + ThemeToggle */}
+        <TwoToneTitle
+          primary="Alarm"
+          accessoryRight={<ThemeToggle />}
+        />
 
-          <TouchableOpacity
-            testID="add-alarm-header-button"
-            style={styles.addOrangeCircle}
-            onPress={handleAddAlarm}
-            activeOpacity={0.8}
-            accessibilityLabel="Add Alarm"
-          >
-            <Plus size={iconSizes.md} color={colors.textInverse} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Hero Clock Readout (Inspiration 1 Match) */}
-        <View style={styles.heroClockContainer}>
-          <Text style={styles.locationSubtitle}>
-            {nextAlarm
-              ? `Next: ${formatDisplayTime(nextAlarm.alarm.time, timeFormat).formatted} · ${nextAlarm.alarm.label || 'Alarm'}`
-              : 'Local Time · Smart Wake-Up'}
-          </Text>
-
-          <View style={styles.clockRow}>
-            <Text style={styles.clockDigits}>{currentTime.time}</Text>
-            {currentTime.ampm ? (
-              <Text style={styles.ampmText}>{currentTime.ampm}</Text>
-            ) : null}
-          </View>
-
-          <Text style={styles.repeatLabel}>Repeat</Text>
-
-          <View style={styles.daysRow}>
-            {DAYS_HEADER.map((label, index) => {
-              // Map index to Sunday=0, Monday=1, ... Saturday=6
-              const dayValue = index === 6 ? 0 : index + 1;
-              const isActive = activeDaysSet.has(dayValue);
-              return (
-                <View
-                  key={index}
-                  style={[styles.dayBox, isActive && styles.dayBoxActive]}
+        {/* Scrollable Main Content */}
+        <FlatList
+          data={alarms}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollList}
+          ListHeaderComponent={
+            <>
+              {/* Huge Numerals 09:50 (Hours ink, Minutes muted) */}
+              <Animated.View style={[styles.giantClockContainer, animatedHeroStyle]}>
+                <Text
+                  testID="giant-clock-display"
+                  style={[
+                    styles.giantClockHours,
+                    {
+                      color: colors.ink,
+                      fontFamily: typography.fonts.light,
+                    },
+                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.dayBoxText,
-                      isActive && styles.dayBoxTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+                  {hoursString}
+                  <Text style={{ color: colors.muted }}>:{minutesString}</Text>
+                </Text>
+                {/* Live Countdown Caption */}
+                <Text
+                  testID="countdown-caption"
+                  style={[
+                    styles.captionText,
+                    { color: colors.muted, fontFamily: typography.fonts.medium },
+                  ]}
+                >
+                  {countdownCaption}
+                </Text>
+              </Animated.View>
 
-        {/* Alarms Header */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Alarm.</Text>
-          <View style={styles.sectionActions}>
-            <TouchableOpacity
-              onPress={handleAddAlarm}
-              style={styles.miniActionBtn}
-              accessibilityLabel="Create Alarm"
-            >
-              <Plus size={iconSizes.sm} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleOpenGallery}
-              style={styles.miniActionBtn}
-              accessibilityLabel="Component Gallery"
-            >
-              <MoreVertical size={iconSizes.sm} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
+              {/* 24-Hour Timeline Strip */}
+              <Animated.View style={animatedTimelineStyle}>
+                <AlarmTimeline alarms={alarms} />
+              </Animated.View>
 
-        {/* Alarms List or Empty State */}
-        {alarms.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <BellOff size={36} color={colors.accent} />
-            </View>
-            <Text style={styles.emptyTitle}>No Alarms Set</Text>
-            <Text style={styles.emptySubtitle}>
-              Create your first unskippable wake-up routine with interactive mental & physical challenges.
-            </Text>
-            <TouchableOpacity
-              testID="empty-add-button"
-              style={styles.emptyButton}
-              onPress={handleAddAlarm}
-              activeOpacity={0.8}
-            >
-              <Plus size={iconSizes.sm} color={colors.textInverse} strokeWidth={2.5} />
-              <Text style={styles.emptyButtonText}>Create Alarm</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            data={alarms}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
+              {/* Weekday Strip with Sliding Yellow Disc */}
+              <WeekdayStrip
+                selectedDay={selectedDay}
+                onSelectDay={setSelectedDay}
+                activeAlarmDays={activeAlarmDays}
+              />
+
+              {/* Section Header */}
+              <View style={styles.sectionHeaderRow}>
+                <Text
+                  style={[
+                    styles.sectionHeader,
+                    { color: colors.muted, fontFamily: typography.fonts.bold },
+                  ]}
+                >
+                  SCHEDULED ALARMS
+                </Text>
+              </View>
+            </>
+          }
+          renderItem={({ item }) => (
+            <Animated.View style={animatedCardsStyle}>
               <AlarmCard
                 alarm={item}
                 onPress={() => handleEditAlarm(item.id)}
-                onToggle={() => toggleAlarm(item.id)}
+                onToggle={() => handleToggle(item.id)}
               />
-            )}
-          />
-        )}
+            </Animated.View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: colors.muted, fontFamily: typography.fonts.medium },
+                ]}
+              >
+                No alarms set. Tap + to create your first alarm.
+              </Text>
+            </View>
+          }
+        />
 
-        {/* Floating Action Button (Alternative) */}
-        {alarms.length > 0 && (
-          <TouchableOpacity
-            testID="fab-add-alarm"
-            style={styles.fab}
-            onPress={handleAddAlarm}
-            activeOpacity={0.8}
-            accessibilityLabel="Add Alarm"
-          >
-            <Plus size={iconSizes.lg} color={colors.textInverse} strokeWidth={2.5} />
-          </TouchableOpacity>
-        )}
-
-        {/* Floating Bottom Navigation Tab Dock (Inspiration Match with Settings Icon on Left) */}
-        <View style={styles.bottomDockWrapper} pointerEvents="box-none">
-          <View style={styles.dock}>
-            {/* Left Icon: Proper Settings Icon */}
-            <TouchableOpacity
-              testID="bottom-nav-settings-btn"
-              style={styles.dockButton}
-              onPress={handleOpenPermissions}
-              accessibilityLabel="Settings"
-            >
-              <Settings size={iconSizes.md} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            {/* Center: Glowing Aurora Lime Clock Pill */}
-            <TouchableOpacity
-              style={styles.dockCenterPill}
-              onPress={() => {}}
-              accessibilityLabel="Alarms Home Tab"
-            >
-              <Clock size={iconSizes.md} color={colors.textInverse} strokeWidth={2.5} />
-            </TouchableOpacity>
-
-            {/* Right: Gallery & Tools */}
-            <TouchableOpacity
-              style={styles.dockButton}
-              onPress={handleOpenGallery}
-              accessibilityLabel="Component Design Gallery"
-            >
-              <ShieldCheck size={iconSizes.md} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Floating Bottom Bar */}
+        <PillBar
+          onAddPress={handleAddAlarm}
+          onSettingsPress={handleOpenPermissions}
+          timeRangeText={`${hoursString}:${minutesString}`}
+        />
       </View>
     </SafeAreaView>
   );
@@ -281,227 +262,41 @@ export default function AlarmListScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.base,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+  scrollList: {
+    paddingBottom: 110, // Clearance for floating PillBar
   },
-  iconCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  addOrangeCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.glowAccent,
-  },
-  heroClockContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    gap: 4,
-  },
-  locationSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.medium,
-    letterSpacing: 0.5,
-  },
-  clockRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  clockDigits: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.hero + 8,
-    fontWeight: typography.weights.black,
-    letterSpacing: -1.5,
-    lineHeight: 72,
-  },
-  ampmText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    marginTop: 10,
-    marginLeft: 4,
-  },
-  repeatLabel: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  daysRow: {
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-  },
-  dayBox: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  dayBoxActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
-  },
-  dayBoxText: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  dayBoxTextActive: {
-    color: colors.textInverse,
-    fontWeight: typography.weights.bold,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
+  giantClockContainer: {
+    marginTop: spacing.sm,
     marginBottom: spacing.base,
   },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h1,
-    fontWeight: typography.weights.bold,
-    letterSpacing: -0.5,
+  giantClockHours: {
+    fontSize: typography.sizes.giantClock,
+    letterSpacing: -2,
+    lineHeight: 84,
   },
-  sectionActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'center',
+  captionText: {
+    fontSize: typography.sizes.body,
+    marginTop: spacing.xs,
   },
-  miniActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+  sectionHeaderRow: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
-  listContent: {
-    gap: spacing.base,
-    paddingBottom: 110,
+  sectionHeader: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 1.2,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingVertical: spacing.xl,
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    gap: spacing.md,
-    paddingBottom: 100,
-  },
-  emptyIconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    marginBottom: spacing.xs,
-    ...shadows.glowAccent,
   },
-  emptyTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h2,
-    fontWeight: typography.weights.bold,
-  },
-  emptySubtitle: {
-    color: colors.textSecondary,
+  emptyText: {
     fontSize: typography.sizes.bodySmall,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 290,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radii.pill,
-    marginTop: spacing.sm,
-    ...shadows.glowAccent,
-  },
-  emptyButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.bold,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.glowAccent,
-  },
-  bottomDockWrapper: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  dock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(20, 26, 45, 0.92)',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xs + 2,
-    gap: spacing.xxl,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    ...shadows.card,
-  },
-  dockButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dockCenterPill: {
-    width: 56,
-    height: 38,
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.glowLime,
   },
 });

@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Delete, Check } from 'lucide-react-native';
-import { colors, spacing, radii, typography, shadows, iconSizes } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeProvider';
+import { RoundButton } from '../ui/RoundButton';
+import { spacing, typography, iconSizes } from '../../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
 interface NumericKeypadProps {
@@ -17,6 +19,8 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
   onSubmit,
   submitDisabled = false,
 }) => {
+  const { colors } = useTheme();
+
   const handleDigitPress = (digit: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onDigit(digit);
@@ -37,94 +41,112 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
     <View style={styles.container}>
       <View style={styles.row}>
         {['1', '2', '3'].map((num) => (
-          <TouchableOpacity
+          <RoundButton
             key={num}
             testID={`keypad-${num}`}
-            style={styles.keyButton}
-            onPress={() => handleDigitPress(num)}
-            activeOpacity={0.75}
+            size={64}
+            variant="surface"
             accessibilityLabel={`Digit ${num}`}
-            accessibilityRole="button"
+            onPress={() => handleDigitPress(num)}
           >
-            <Text style={styles.keyText}>{num}</Text>
-          </TouchableOpacity>
+            <Text
+              style={[
+                styles.keyText,
+                { color: colors.ink, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              {num}
+            </Text>
+          </RoundButton>
         ))}
       </View>
 
       <View style={styles.row}>
         {['4', '5', '6'].map((num) => (
-          <TouchableOpacity
+          <RoundButton
             key={num}
             testID={`keypad-${num}`}
-            style={styles.keyButton}
-            onPress={() => handleDigitPress(num)}
-            activeOpacity={0.75}
+            size={64}
+            variant="surface"
             accessibilityLabel={`Digit ${num}`}
-            accessibilityRole="button"
+            onPress={() => handleDigitPress(num)}
           >
-            <Text style={styles.keyText}>{num}</Text>
-          </TouchableOpacity>
+            <Text
+              style={[
+                styles.keyText,
+                { color: colors.ink, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              {num}
+            </Text>
+          </RoundButton>
         ))}
       </View>
 
       <View style={styles.row}>
         {['7', '8', '9'].map((num) => (
-          <TouchableOpacity
+          <RoundButton
             key={num}
             testID={`keypad-${num}`}
-            style={styles.keyButton}
-            onPress={() => handleDigitPress(num)}
-            activeOpacity={0.75}
+            size={64}
+            variant="surface"
             accessibilityLabel={`Digit ${num}`}
-            accessibilityRole="button"
+            onPress={() => handleDigitPress(num)}
           >
-            <Text style={styles.keyText}>{num}</Text>
-          </TouchableOpacity>
+            <Text
+              style={[
+                styles.keyText,
+                { color: colors.ink, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              {num}
+            </Text>
+          </RoundButton>
         ))}
       </View>
 
       <View style={styles.row}>
-        <TouchableOpacity
+        <RoundButton
           testID="keypad-backspace"
-          style={[styles.keyButton, styles.actionButton]}
-          onPress={handleBackspacePress}
-          activeOpacity={0.75}
+          size={64}
+          variant="surfaceAlt"
           accessibilityLabel="Backspace"
-          accessibilityRole="button"
+          onPress={handleBackspacePress}
         >
-          <Delete size={iconSizes.lg} color={colors.textSecondary} />
-        </TouchableOpacity>
+          <Delete size={iconSizes.md} color={colors.ink} />
+        </RoundButton>
 
-        <TouchableOpacity
+        <RoundButton
           testID="keypad-0"
-          style={styles.keyButton}
-          onPress={() => handleDigitPress('0')}
-          activeOpacity={0.75}
+          size={64}
+          variant="surface"
           accessibilityLabel="Digit 0"
-          accessibilityRole="button"
+          onPress={() => handleDigitPress('0')}
         >
-          <Text style={styles.keyText}>0</Text>
-        </TouchableOpacity>
+          <Text
+            style={[
+              styles.keyText,
+              { color: colors.ink, fontFamily: typography.fonts.bold },
+            ]}
+          >
+            0
+          </Text>
+        </RoundButton>
 
-        <TouchableOpacity
+        <RoundButton
           testID="keypad-submit"
-          style={[
-            styles.keyButton,
-            styles.submitButton,
-            submitDisabled && styles.submitButtonDisabled,
-          ]}
-          onPress={handleSubmitPress}
-          activeOpacity={0.75}
+          size={64}
+          variant={submitDisabled ? 'surface' : 'accentYellow'}
           disabled={submitDisabled}
           accessibilityLabel="Submit Answer"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: submitDisabled }}
+          onPress={handleSubmitPress}
         >
           <Check
             size={iconSizes.lg}
-            color={submitDisabled ? colors.textMuted : colors.textInverse}
+            color={submitDisabled ? colors.muted : '#0D0D0D'}
+            strokeWidth={3}
           />
-        </TouchableOpacity>
+        </RoundButton>
       </View>
     </View>
   );
@@ -135,43 +157,15 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: spacing.base,
     gap: spacing.md,
+    alignItems: 'center',
+    marginVertical: spacing.sm,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  keyButton: {
-    flex: 1,
-    minHeight: 56,
-    height: 64,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.xl,
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    ...shadows.card,
+    gap: spacing.lg,
   },
   keyText: {
-    color: colors.textPrimary,
     fontSize: typography.sizes.h2,
-    fontWeight: typography.weights.semibold,
-  },
-  actionButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...shadows.glowLime,
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.disabled,
-    borderColor: colors.border,
-    opacity: 0.45,
-    shadowOpacity: 0,
-    elevation: 0,
   },
 });

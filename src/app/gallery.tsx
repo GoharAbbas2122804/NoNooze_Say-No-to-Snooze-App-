@@ -4,200 +4,169 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import {
-  ArrowLeft,
-  Bell,
-  Check,
-  Clock,
-  Sparkles,
-  Sliders,
-  Trash2,
-  AlertCircle,
-} from 'lucide-react-native';
-import { colors, spacing, radii, typography, shadows, iconSizes } from '../theme/tokens';
-import { DaySelector } from '../components/alarm/DaySelector';
-import { NumericKeypad } from '../components/challenges/NumericKeypad';
+import { ArrowLeft, Plus, Check } from 'lucide-react-native';
+import { useTheme } from '../theme/ThemeProvider';
+import { TwoToneTitle } from '../components/ui/TwoToneTitle';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { RoundButton } from '../components/ui/RoundButton';
+import { DotMatrixDisplay } from '../components/alarm/DotMatrixDisplay';
+import { AlarmTimeline } from '../components/alarm/AlarmTimeline';
+import { WeekdayStrip } from '../components/alarm/WeekdayStrip';
 import { AlarmCard } from '../components/alarm/AlarmCard';
+import { StepDots } from '../components/alarm/StepDots';
+import { PillBar } from '../components/alarm/PillBar';
+import { notify } from '../ui/notify';
+import { typography, spacing, radii, iconSizes } from '../theme/tokens';
 import { Alarm, DayOfWeek } from '../domain/types';
 
 export default function ComponentGalleryScreen() {
-  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([1, 2, 3, 4, 5]);
-  const [switchState, setSwitchState] = useState(true);
+  const { colors, isDark } = useTheme();
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(4);
+  const [dotsProgress, setDotsProgress] = useState(2);
 
   const sampleAlarmEnabled: Alarm = {
-    id: 'sample-1',
-    time: '06:30',
+    id: 'gallery-1',
+    time: '09:50',
     days: [1, 2, 3, 4, 5],
     enabled: true,
-    label: 'Morning Workout & Run',
-    steps: [{ methodId: 'math', target: 3 }],
+    label: 'Morning Focus Routine',
+    steps: [{ methodId: 'math', target: 3 }, { methodId: 'math', target: 2 }],
     sound: 'default',
   };
 
   const sampleAlarmDisabled: Alarm = {
-    id: 'sample-2',
+    id: 'gallery-2',
     time: '08:00',
     days: [0, 6],
     enabled: false,
-    label: 'Weekend Sleep In',
-    steps: [{ methodId: 'math', target: 2 }],
+    label: 'Weekend Rest',
+    steps: [{ methodId: 'math', target: 1 }],
     sound: 'default',
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity
+        <RoundButton
+          variant="surface"
+          size={44}
           onPress={() => router.back()}
-          style={styles.backButton}
-          accessibilityLabel="Back"
+          accessibilityLabel="Back to Home"
         >
-          <ArrowLeft size={iconSizes.md} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Component Gallery</Text>
-        <View style={styles.headerSpacer} />
+          <ArrowLeft size={iconSizes.sm} color={colors.ink} />
+        </RoundButton>
+        <TwoToneTitle primary="Design System" secondary="Gallery" />
+        <ThemeToggle />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Section 1: Color Palette */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Section 1: Color Tokens */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>1. Palette Swatches</Text>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            1. PALETTE TOKENS ({isDark ? 'DARK' : 'LIGHT'})
+          </Text>
           <View style={styles.swatchGrid}>
             {[
-              { name: 'background', color: colors.background, text: '#FFF' },
-              { name: 'surface', color: colors.surface, text: '#FFF' },
-              { name: 'surfaceElevated', color: colors.surfaceElevated, text: '#FFF' },
-              { name: 'primary (Lime)', color: colors.primary, text: '#0B101E' },
-              { name: 'accent (Amber)', color: colors.accent, text: '#0B101E' },
-              { name: 'indigoGlow', color: colors.indigoGlow, text: '#FFF' },
-              { name: 'success', color: colors.success, text: '#FFF' },
-              { name: 'error', color: colors.error, text: '#FFF' },
+              { name: 'background', color: colors.background, text: colors.ink },
+              { name: 'surface', color: colors.surface, text: colors.ink },
+              { name: 'surfaceAlt', color: colors.surfaceAlt, text: colors.ink },
+              { name: 'ink', color: colors.ink, text: colors.background },
+              { name: 'muted', color: colors.muted, text: colors.background },
+              { name: 'accentYellow', color: colors.accentYellow, text: '#0D0D0D' },
+              { name: 'markerRed', color: colors.markerRed, text: '#FFF' },
+              { name: 'disabled', color: colors.disabled, text: colors.ink },
             ].map((s) => (
-              <View key={s.name} style={[styles.swatchItem, { backgroundColor: s.color }]}>
-                <Text style={[styles.swatchText, { color: s.text }]}>{s.name}</Text>
+              <View
+                key={s.name}
+                style={[
+                  styles.swatchItem,
+                  { backgroundColor: s.color, borderColor: colors.borderSubtle },
+                ]}
+              >
+                <Text style={[styles.swatchLabel, { color: s.text, fontFamily: typography.fonts.bold }]}>
+                  {s.name}
+                </Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Section 2: Buttons & States */}
+        {/* Section 2: Round Buttons in All States */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>2. Buttons in All States</Text>
-
-          {/* Primary Lime Buttons */}
-          <Text style={styles.stateLabel}>Primary Lime (Default, Pressed, Disabled, Loading)</Text>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            2. ROUND BUTTONS (DEFAULT, DISABLED, LOADING)
+          </Text>
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8}>
-              <Text style={styles.primaryBtnText}>Default</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.primaryBtn, styles.btnPressed]} activeOpacity={0.8}>
-              <Text style={styles.primaryBtnText}>Pressed</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.primaryBtn, styles.btnDisabled]} disabled>
-              <Text style={styles.primaryBtnTextDisabled}>Disabled</Text>
-            </TouchableOpacity>
-
-            <View style={[styles.primaryBtn, styles.btnLoading]}>
-              <ActivityIndicator color={colors.textInverse} size="small" />
-            </View>
-          </View>
-
-          {/* Accent Amber Buttons */}
-          <Text style={styles.stateLabel}>Accent Amber (Default, Pressed, Disabled, Loading)</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.accentBtn} activeOpacity={0.8}>
-              <Text style={styles.accentBtnText}>Default</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.accentBtn, styles.btnPressed]} activeOpacity={0.8}>
-              <Text style={styles.accentBtnText}>Pressed</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.accentBtn, styles.btnDisabled]} disabled>
-              <Text style={styles.accentBtnTextDisabled}>Disabled</Text>
-            </TouchableOpacity>
-
-            <View style={[styles.accentBtn, styles.btnLoading]}>
-              <ActivityIndicator color={colors.textInverse} size="small" />
-            </View>
-          </View>
-
-          {/* Destructive / Outline */}
-          <Text style={styles.stateLabel}>Destructive / Outline</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.destructiveBtn}>
-              <Trash2 size={16} color={colors.error} />
-              <Text style={styles.destructiveBtnText}>Delete</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.outlineBtn}>
-              <Text style={styles.outlineBtnText}>Outline Action</Text>
-            </TouchableOpacity>
+            {/* Default Ink */}
+            <RoundButton variant="ink" size={56} onPress={() => {}}>
+              <Plus size={24} color={colors.background} />
+            </RoundButton>
+            {/* Surface */}
+            <RoundButton variant="surface" size={56} onPress={() => {}}>
+              <Check size={24} color={colors.ink} />
+            </RoundButton>
+            {/* Accent Yellow */}
+            <RoundButton variant="accentYellow" size={56} onPress={() => {}}>
+              <Check size={24} color="#0D0D0D" strokeWidth={3} />
+            </RoundButton>
+            {/* Disabled */}
+            <RoundButton variant="surface" size={56} disabled onPress={() => {}}>
+              <Plus size={24} color={colors.muted} />
+            </RoundButton>
+            {/* Loading */}
+            <RoundButton variant="surface" size={56} onPress={() => {}}>
+              <ActivityIndicator color={colors.ink} size="small" />
+            </RoundButton>
           </View>
         </View>
 
-        {/* Section 3: Badges, Pills & Chips */}
+        {/* Section 3: Dot Matrix Clock (Inspiration 01) */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>3. Badges & Chips</Text>
-          <View style={styles.chipRow}>
-            <View style={styles.badgeLime}>
-              <Check size={12} color={colors.primary} />
-              <Text style={styles.badgeLimeText}>Active / Granted</Text>
-            </View>
-
-            <View style={styles.badgeAmber}>
-              <Sparkles size={12} color={colors.accent} />
-              <Text style={styles.badgeAmberText}>Recommended</Text>
-            </View>
-
-            <View style={styles.badgeError}>
-              <AlertCircle size={12} color={colors.error} />
-              <Text style={styles.badgeErrorText}>Required</Text>
-            </View>
-
-            <View style={styles.badgeMuted}>
-              <Text style={styles.badgeMutedText}>Coming Soon</Text>
-            </View>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            3. DOT-MATRIX CLOCK (06 / 42 / 56)
+          </Text>
+          <View style={[styles.previewCard, { backgroundColor: colors.surface }]}>
+            <DotMatrixDisplay hours="06" minutes="42" seconds="56" />
           </View>
         </View>
 
-        {/* Section 4: Form Controls & Switch */}
+        {/* Section 4: 24h Timeline Strip (Inspiration 04) */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>4. Controls & Switch</Text>
-          <View style={styles.controlRow}>
-            <Text style={styles.controlText}>Alarm Active State:</Text>
-            <Switch
-              value={switchState}
-              onValueChange={setSwitchState}
-              trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-              thumbColor={colors.switchThumb}
-            />
-          </View>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            4. 24-HOUR TIMELINE STRIP
+          </Text>
+          <AlarmTimeline alarms={[sampleAlarmEnabled, sampleAlarmDisabled]} />
         </View>
 
-        {/* Section 5: Day Selector */}
+        {/* Section 5: Weekday Strip with Sliding Disc */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>5. Day Selector Component</Text>
-          <DaySelector selectedDays={selectedDays} onChange={setSelectedDays} />
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            5. WEEKDAY STRIP (SLIDING YELLOW CIRCLE)
+          </Text>
+          <WeekdayStrip
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+            activeAlarmDays={[1, 2, 3, 4, 5]}
+          />
         </View>
 
         {/* Section 6: Alarm Cards */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>6. Alarm Cards (Enabled vs Disabled)</Text>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            6. ALARM CARDS (ENABLED & DISABLED)
+          </Text>
           <AlarmCard
             alarm={sampleAlarmEnabled}
             onPress={() => {}}
             onToggle={() => {}}
           />
-          <View style={{ height: spacing.base }} />
           <AlarmCard
             alarm={sampleAlarmDisabled}
             onPress={() => {}}
@@ -205,37 +174,81 @@ export default function ComponentGalleryScreen() {
           />
         </View>
 
-        {/* Section 7: Keypad */}
+        {/* Section 7: Step Dots Progress */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>7. Numeric Keypad</Text>
-          <NumericKeypad
-            onDigit={() => {}}
-            onBackspace={() => {}}
-            onSubmit={() => {}}
-            submitDisabled={false}
-          />
-        </View>
-
-        {/* Section 8: Floating Tab Dock Mockup */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>8. Floating Tab Dock (Inspiration Style)</Text>
-          <View style={styles.tabDockContainer}>
-            <View style={styles.tabDock}>
-              <TouchableOpacity style={styles.dockIconBtn}>
-                <Sliders size={iconSizes.md} color={colors.textSecondary} />
-              </TouchableOpacity>
-
-              <View style={styles.dockCenterPill}>
-                <Clock size={iconSizes.md} color={colors.textInverse} />
-              </View>
-
-              <TouchableOpacity style={styles.dockIconBtn}>
-                <Bell size={iconSizes.md} color={colors.textSecondary} />
-              </TouchableOpacity>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            7. STEP DOTS PROGRESS
+          </Text>
+          <View style={[styles.previewCard, { backgroundColor: colors.surface }]}>
+            <StepDots total={4} current={dotsProgress} />
+            <View style={styles.dotsControlRow}>
+              <RoundButton
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setDotsProgress((p) => Math.max(0, p - 1))}
+              >
+                <Text style={{ color: colors.ink, fontWeight: 'bold' }}>-</Text>
+              </RoundButton>
+              <RoundButton
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setDotsProgress((p) => Math.min(4, p + 1))}
+              >
+                <Text style={{ color: colors.ink, fontWeight: 'bold' }}>+</Text>
+              </RoundButton>
             </View>
           </View>
         </View>
+
+        {/* Section 8: Toast Trigger Testing */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            8. TOAST NOTIFICATIONS (NOTIFY FACADE)
+          </Text>
+          <View style={styles.toastGrid}>
+            <RoundButton
+              variant="accentYellow"
+              size={52}
+              onPress={() => notify.success('Alarm set for 06:30')}
+            >
+              <Text style={styles.toastBtnText}>OK</Text>
+            </RoundButton>
+            <RoundButton
+              variant="surface"
+              size={52}
+              onPress={() => notify.error('Wrong answer')}
+            >
+              <Text style={[styles.toastBtnText, { color: colors.error }]}>ERR</Text>
+            </RoundButton>
+            <RoundButton
+              variant="surface"
+              size={52}
+              onPress={() => notify.warning('Exact alarm permission missing')}
+            >
+              <Text style={[styles.toastBtnText, { color: colors.warning }]}>WARN</Text>
+            </RoundButton>
+            <RoundButton
+              variant="ink"
+              size={52}
+              onPress={() =>
+                notify.action('Alarm deleted', {
+                  label: 'Undo',
+                  onPress: () => notify.info('Restored!'),
+                })
+              }
+            >
+              <Text style={[styles.toastBtnText, { color: colors.background }]}>UNDO</Text>
+            </RoundButton>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Floating Bottom PillBar Preview */}
+      <PillBar
+        onAddPress={() => notify.info('Add tapped')}
+        onSettingsPress={() => notify.info('Settings tapped')}
+        timeRangeText="9:41 ... 10:00"
+      />
     </SafeAreaView>
   );
 }
@@ -243,51 +256,25 @@ export default function ComponentGalleryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodyLarge,
-    fontWeight: typography.weights.bold,
-  },
-  headerSpacer: {
-    width: 40,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.xs,
   },
   scrollContent: {
-    padding: spacing.lg,
-    gap: spacing.xl,
-    paddingBottom: 60,
+    paddingHorizontal: spacing.base,
+    paddingBottom: 130,
   },
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.card,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.md,
+    marginVertical: spacing.md,
   },
-  sectionHeader: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h3,
-    fontWeight: typography.weights.bold,
-    marginBottom: spacing.xs,
+  sectionTitle: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 1.2,
+    marginBottom: spacing.sm,
   },
   swatchGrid: {
     flexDirection: 'row',
@@ -295,219 +282,39 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   swatchItem: {
-    width: '48%',
-    height: 44,
+    width: '23%',
+    height: 48,
     borderRadius: radii.md,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
-  swatchText: {
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  stateLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
-    marginTop: spacing.xs,
+  swatchLabel: {
+    fontSize: 9,
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  primaryBtn: {
-    flex: 1,
-    minWidth: 70,
-    height: 44,
-    backgroundColor: colors.primary,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.glowLime,
+    gap: spacing.md,
+    marginVertical: spacing.sm,
   },
-  primaryBtnText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  accentBtn: {
-    flex: 1,
-    minWidth: 70,
-    height: 44,
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
+  previewCard: {
+    borderRadius: radii.card,
+    padding: spacing.base,
     alignItems: 'center',
-    ...shadows.glowAccent,
   },
-  accentBtnText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  btnPressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
-  },
-  btnDisabled: {
-    backgroundColor: colors.disabled,
-    opacity: 0.5,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  primaryBtnTextDisabled: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  accentBtnTextDisabled: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  btnLoading: {
-    backgroundColor: colors.surfaceElevated,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  destructiveBtn: {
+  dotsControlRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.base,
-    height: 44,
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: colors.error,
+    gap: spacing.md,
+    marginTop: spacing.sm,
   },
-  destructiveBtnText: {
-    color: colors.error,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.semibold,
-  },
-  outlineBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  outlineBtnText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
-  },
-  chipRow: {
+  toastGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  badgeLime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(112, 244, 100, 0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  badgeLimeText: {
-    color: colors.primary,
+  toastBtnText: {
     fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  badgeAmber: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 149, 0, 0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  badgeAmberText: {
-    color: colors.accent,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  badgeError: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  badgeErrorText: {
-    color: colors.error,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  badgeMuted: {
-    backgroundColor: colors.surfaceElevated,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  badgeMutedText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.medium,
-  },
-  controlRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  controlText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-  },
-  tabDockContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  tabDock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  dockIconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dockCenterPill: {
-    width: 52,
-    height: 36,
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.glowLime,
+    fontWeight: 'bold',
   },
 });

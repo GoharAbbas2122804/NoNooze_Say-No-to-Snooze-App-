@@ -1,141 +1,85 @@
-# NoNooze Design Brief
+# NoNooze Design Brief (Overhaul — Nothing-OS Minimal Edition)
 
 ## 1. Vision & Emotional Target
-NoNooze is an unskippable, calm, premium smart alarm application. At 5:00 AM in a dark bedroom, waking up should never feel aggressive, jarring, or anxiety-inducing. The design balances a tranquil, deep midnight canvas with vibrant functional feedback: an electric aurora lime for active progress and a sunrise amber for confident forward momentum.
+NoNooze is an unskippable, calm, flat, editorial smart alarm application inspired by Nothing OS minimal aesthetics. It completely rejects loud gradients, fake glass, drop shadows, and visual noise. Waking up in low light is treated with respect: soft, tone-separated surfaces, near-black ink, giant light numerals, and a single vibrant yellow accent with a tiny red alignment marker.
 
 ---
 
-## 2. Palette (Exact Hex & Semantic Roles)
+## 2. Color Palette & Dual-Theme Tokens
 
-| Token Name | Hex / Value | Semantic Role | Contrast vs `#0B101E` |
-|---|---|---|---|
-| `background` | `#0B101E` | Deepest midnight canvas (OLED safe, zero glare) | Base |
-| `backgroundElevated` | `#10172A` | Secondary backdrops, grouped screen sections | 1.1:1 |
-| `surface` | `#141A2D` | Primary card and container fill | 1.3:1 |
-| `surfaceElevated` | `#1C243E` | Interactive controls, inputs, steppers | 1.6:1 |
-| `surfaceActive` | `#222D4D` | Selected or pressed container states | 1.9:1 |
-| `border` | `#232E4E` | Default component boundaries | 1.9:1 |
-| `borderSubtle` | `rgba(255, 255, 255, 0.08)` | Translucent divider lines and card borders | — |
-| `borderFocus` | `#70F464` | Focused and active ring borders | 12.8:1 |
-| `primary` | `#70F464` | Aurora Lime: active toggle, progress, selected tab | 12.8:1 |
-| `primaryGlow` | `rgba(112, 244, 100, 0.25)` | Aurora halo around active elements | — |
-| `accent` | `#FF9500` | Sunrise Amber: FAB, hero accents, primary actions | 8.2:1 |
-| `accentGlow` | `rgba(255, 149, 0, 0.25)` | Warm halo around hero buttons | — |
-| `textPrimary` | `#FFFFFF` | Primary headers, active digits, essential info | 17.5:1 (AAA) |
-| `textSecondary` | `#94A3B8` | Subtitles, labels, secondary metadata | 5.6:1 (AA) |
-| `textMuted` | `#64748B` | Inactive icons, subtle hints, placeholders | 3.3:1 (Non-text UI AA) |
-| `textInverse` | `#0B101E` | Text inside high-luminance buttons | 12.8:1 |
-| `success` | `#22C55E` | Verification badges, completed step markers | 8.4:1 |
-| `error` | `#EF4444` | Validation errors, destructive action badges | 4.8:1 |
-| `warning` | `#F59E0B` | Exemption warnings, permission notices | 7.9:1 |
-| `disabled` | `#1E293B` | Disabled button backdrops | — |
-| `switchTrackOn` | `#70F464` | Alarm toggle active track | 12.8:1 |
-| `switchTrackOff` | `#1E293B` | Alarm toggle inactive track | — |
-| `switchThumb` | `#FFFFFF` | Alarm toggle thumb | — |
+Separation is achieved strictly through tone and whitespace on an 8pt grid.
 
----
+### Light Theme
+- **`background`**: `#C4C5C1` (Soft slate grey canvas)
+- **`surface`**: `#D4D5D2` (Primary card surface)
+- **`surfaceAlt`**: `#B0B1AB` (Sage accent surface / time picker backdrop)
+- **`ink`**: `#0D0D0D` (Near-black text and solid active controls)
+- **`muted`**: `#8E8F89` (Secondary captions, inactive digits, muted labels)
+- **`accentYellow`**: `#F2E63A` (The single electric yellow accent for active days, now-marker, toggles)
+- **`markerRed`**: `#E5372B` (Tiny red marker for the time ruler needle)
+- **`dotInactive`**: `rgba(13, 13, 13, 0.08)` (Faint dot-matrix grid background)
 
-## 3. Typography Scale & Hierarchy
+### Dark Theme
+- **`background`**: `#0B0B0A` (Deepest warm black)
+- **`surface`**: `#171716` (Card and panel surface)
+- **`surfaceAlt`**: `#222220` (Secondary container surface)
+- **`ink`**: `#EDEDE8` (Off-white high contrast readable text)
+- **`muted`**: `#7C7D77` (Muted captions and secondary text)
+- **`accentYellow`**: `#F2E63A` (Consistent vibrant yellow accent)
+- **`markerRed`**: `#E5372B` (Tiny red marker for precision ruler)
+- **`dotInactive`**: `rgba(237, 237, 232, 0.08)` (Faint dot-matrix grid dots)
 
-System sans-serif / Inter with clean optical spacing and tabular numerals for clock readouts.
-
-| Token | Size | Line Height | Weight | Usage |
-|---|---|---|---|---|
-| `hero` | 56 | 64 | 900 (Black) | Ringing screen digital clock |
-| `time` | 44 | 52 | 700 (Bold) | Alarm card time display |
-| `h1` | 32 | 38 | 800 (Bold) | Screen titles (`Alarm.`, `Good Morning!`) |
-| `h2` | 24 | 30 | 700 (Bold) | Modal titles, section hero headers |
-| `h3` | 20 | 26 | 600 (Semibold) | Subsection titles, card group headers |
-| `bodyLarge` | 18 | 24 | 600 (Semibold) | Challenge questions, button text |
-| `body` | 16 | 22 | 400 (Regular) | Primary readable copy, input values |
-| `bodySmall` | 14 | 20 | 500 (Medium) | Card labels, secondary captions |
-| `caption` | 12 | 16 | 600 (Semibold) | Badges, step counters, uppercase chips |
-| `micro` | 10 | 14 | 700 (Bold) | Status tags, tiny metadata |
+### Contrast & Accessibility Compliance
+- Light: `ink` on `background` = **12.4:1** (WCAG AAA).
+- Dark: `ink` on `background` = **15.2:1** (WCAG AAA).
+- Graphic UI & Controls: Yellow `#F2E63A` on Dark `#0B0B0A` = **13.8:1** (WCAG AAA). Text on yellow is always dark `ink` (`#0D0D0D`).
 
 ---
 
-## 4. Spacing Rhythm (8pt Grid)
+## 3. Typography Scale & Fonts
 
-All padding, margins, and gaps strictly align to multiples of 4 and 8:
-
-| Token | Pixels | Semantic Application |
-|---|---|---|
-| `xs` | 4px | Micro spacing, icon-to-badge gaps |
-| `sm` | 8px | Tight chip gaps, compact component internal padding |
-| `md` | 12px | Keypad grid gaps, card internal sub-group spacing |
-| `base` | 16px | Standard card padding, input horizontal inset |
-| `lg` | 20px | Major card padding, screen horizontal gutter |
-| `xl` | 24px | Section separation, header-to-content gap |
-| `xxl` | 32px | Screen top padding, hero section spacing |
-| `xxxl` | 40px | Empty state vertical rhythm |
-| `huge` | 48px | Ringing hero margin clearance |
+- **Primary Font Family**: **Inter Tight** (Neo-grotesque with tight optical tracking).
+  - Light (300): Giant clock numbers (`76dp`), time displays (`44dp`).
+  - Medium (500): Captions, button labels, chips (`14dp`, `16dp`).
+  - Bold (700): Screen titles, two-tone headlines, primary emphasis (`24dp`, `32dp`).
+- **Secondary / Fallback Font Family**: **Doto** (Variable dot-matrix glyph font, 6x10 dot matrix).
+- **Two-Tone Typography Pattern**:
+  Screen and section headlines feature a bold two-tone presentation:
+  Line 1 in `ink`, Line 2 in `muted` (e.g. "Choose" in black, "the Game" in muted grey).
 
 ---
 
-## 5. Shape Language & Radii
+## 4. Shape Language & Radii (8pt Grid)
 
-Soft continuous curves reflecting modern mobile hardware contours:
-
-| Token | Radius | Application |
-|---|---|---|
-| `sm` | 8px | Status tags, small badges |
-| `md` | 12px | Compact buttons, icon containers |
-| `lg` | 16px | Keypad number keys, input fields |
-| `xl` | 20px | Secondary cards, permission cards |
-| `xxl` | 24px | Main modal dialogs, top-level containers |
-| `card` | 22px | Alarm cards, problem cards |
-| `pill` | 9999px | Action buttons, FAB, day selectors, tab docks |
+- **Cards**: `radius: 28`
+- **Buttons & Icon Discs**: Fully circular `56dp` (`radius: 28`)
+- **Pills & Docks**: `radius: 999`
+- **Spacing Scale**: Multiples of 4 and 8 (`4`, `8`, `12`, `16`, `24`, `32`, `48`).
+- **Zero Shadows**: Absolute flat geometry; elevation is expressed by color value steps.
 
 ---
 
-## 6. Elevation & Glow Tokens
+## 5. Motion Principles (GSAP Choreography on Reanimated 4)
 
-Subtle dark-mode ambient shadows paired with soft luminescence:
-
-- **`card`**: Offset `(0, 6)`, opacity `0.35`, radius `12`, elevation `6`, color `#000000`.
-- **`glowLime`**: Offset `(0, 0)`, opacity `0.35`, radius `14`, elevation `8`, color `#70F464`.
-- **`glowAccent`**: Offset `(0, 4)`, opacity `0.40`, radius `12`, elevation `8`, color `#FF9500`.
-- **`glowSubtle`**: Offset `(0, 2)`, opacity `0.20`, radius `8`, elevation `4`, color `#232E4E`.
-
----
-
-## 7. Icon System
-
-- **Unified Library**: Lucide Icons (`lucide-react-native`).
-- **Stroke Width**: `1.75` for medium/large icons, `2.0` for 16-20dp micro icons.
-- **Sizes**:
-  - `sm`: 16dp (badges, metadata)
-  - `md`: 20dp (action buttons, list items)
-  - `lg`: 24dp (primary navigation, header icons)
-  - `xl`: 32dp (hero status indicators)
-- **Zero Emojis**: Emojis are strictly banned as UI icons or structural glyphs.
+- **Only Transform & Opacity**: Never animate layout properties (`width`, `height`, `margin`, `padding`).
+- **Easings**:
+  - Entrances: `power3.out` (`Easing.out(Easing.quart)`).
+  - Exits: `power2.in` (`Easing.in(Easing.cubic)`).
+  - Press / Interactive: Springs with gentle bounce (`damping: 15, stiffness: 150`).
+- **Choreographed Stagger**:
+  - Digits roll in with a per-digit stagger of 60ms.
+  - Weekday labels rise 16px with a 30ms stagger.
+  - 24-hour timeline ticks grow with progressive reveal.
+- **Ringing Hero Breathing**: 2400ms sine cycle oscillating scale between `1.0` and `1.02`.
+- **Accessibility**: Automatically honors `useReducedMotion()`.
 
 ---
 
-## 8. Motion & Physics Principles
+## 6. Toasts & Notification Experience (`notify`)
 
-All animations run exclusively on the UI thread via `react-native-reanimated` and `moti`:
-
-1. **Only Transform & Opacity**: Never animate layout properties (`width`, `height`, `margin`, `padding`).
-2. **Screen Transitions**: Staggered entrance (`opacity: 0 -> 1`, `translateY: 12 -> 0`) in 240ms with `Easing.out(Easing.cubic)`.
-3. **Press Feedback**: Smooth spring compression to `scale: 0.97` accompanied by selection haptic (`Haptics.selectionAsync()`).
-4. **Ringing Pulse**: Gentle, non-anxiety breathing on the hero digital clock (duration 2200ms, scale `1.0` to `1.03`, opacity `0.9` to `1.0`), never a rapid strobe.
-5. **Reduced Motion**: Automatically respect `useReducedMotion()` from Reanimated to disable spring transforms for users who prefer static presentation.
-
----
-
-## 9. Do / Don't Checklist
-
-### Do:
-- Keep the canvas dark (`#0B101E`) to protect 5 AM eyes.
-- Ensure all interactive touch targets are at least 48x48dp.
-- Always provide clear visual states: Default, Pressed, Disabled, Error, Loading.
-- Use Lucide vector icons exclusively with semantic token colors.
-- Maintain at least 4.5:1 text contrast for body copy and 3:1 for graphical UI controls.
-
-### Don't:
-- Never flash full-screen white or jarring high-frequency strobe colors.
-- Never use emojis as functional icons (e.g. no ⏰, 🛡️, 🔔, ☀️).
-- Never write ad-hoc hex values inside screens or components.
-- Never execute layout-triggering JS thread animations.
-- Never place interactive elements within iOS/Android unsafe boundary zones.
+- **Style**: Floating top pill with inverted theme (dark pill on light mode, light pill on dark mode).
+- **Status Markers**:
+  - Yellow dot: Info / Success / Active state.
+  - Red dot: Validation / Warning / Error state.
+- **Interactive Undo**: Alarm deletion triggers a non-blocking toast with an inline "Undo" button.
+- **Deep-Linking**: Warning toasts for missing Android background permissions link directly to system settings.

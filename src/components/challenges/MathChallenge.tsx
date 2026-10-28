@@ -10,7 +10,10 @@ import * as Haptics from 'expo-haptics';
 import { Step } from '../../domain/types';
 import { generateProblem, MathProblem, MathDifficulty } from '../../domain/math-generator';
 import { NumericKeypad } from './NumericKeypad';
-import { colors, spacing, radii, typography, shadows } from '../../theme/tokens';
+import { StepDots } from '../alarm/StepDots';
+import { useTheme } from '../../theme/ThemeProvider';
+import { notify } from '../../ui/notify';
+import { spacing, radii, typography } from '../../theme/tokens';
 
 interface MathChallengeProps {
   step: Step;
@@ -25,6 +28,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
   onComplete,
   initialProblem,
 }) => {
+  const { colors } = useTheme();
   const difficulty = (step.options?.difficulty as MathDifficulty) || 'easy';
   const [problem, setProblem] = useState<MathProblem>(
     () => initialProblem ?? generateProblem(difficulty)
@@ -86,7 +90,7 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
       // Wrong answer
       setHasError(true);
       triggerShake();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      notify.error('Incorrect, try again');
       setTimeout(() => {
         setInput('');
         setHasError(false);
@@ -96,47 +100,63 @@ export const MathChallenge: React.FC<MathChallengeProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Target Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressText}>
-            Problem {Math.min(solved + 1, step.target)} of {step.target}
-          </Text>
-          <Text style={styles.progressPercentage}>
-            {Math.round((solved / Math.max(step.target, 1)) * 100)}%
-          </Text>
-        </View>
-        <View style={styles.track}>
-          <View
-            style={[
-              styles.bar,
-              { width: `${(solved / Math.max(step.target, 1)) * 100}%` },
-            ]}
-          />
-        </View>
-      </View>
+      {/* Target Progress Dots */}
+      <StepDots
+        total={step.target}
+        current={solved}
+        isCompleted={solved >= step.target}
+      />
 
       {/* Problem Display Card */}
       <Animated.View
         style={[
           styles.problemCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: hasError ? colors.error : colors.borderSubtle,
+          },
           animatedShakeStyle,
-          hasError && styles.problemCardError,
         ]}
       >
-        <Text style={styles.questionText}>{problem.question}</Text>
+        <Text
+          style={[
+            styles.questionText,
+            { color: colors.ink, fontFamily: typography.fonts.bold },
+          ]}
+        >
+          {problem.question}
+        </Text>
         <View style={styles.equalsRow}>
-          <Text style={styles.equalsSign}>=</Text>
+          <Text
+            style={[
+              styles.equalsSign,
+              { color: colors.muted, fontFamily: typography.fonts.light },
+            ]}
+          >
+            =
+          </Text>
           <View
             style={[
               styles.inputBox,
-              input.length > 0 && styles.inputBoxActive,
-              hasError && styles.inputBoxError,
+              {
+                backgroundColor: colors.surfaceAlt,
+                borderColor: hasError
+                  ? colors.error
+                  : input.length > 0
+                  ? colors.accentYellow
+                  : colors.borderSubtle,
+              },
             ]}
           >
             <Text
               testID="answer-display"
-              style={[styles.inputText, hasError && styles.inputTextError]}
+              style={[
+                styles.inputText,
+                {
+                  color: hasError ? colors.error : colors.ink,
+                  fontFamily: typography.fonts.bold,
+                },
+              ]}
             >
               {input || '?'}
             </Text>
@@ -159,64 +179,19 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     alignItems: 'center',
-    gap: spacing.lg,
-  },
-  progressContainer: {
-    width: '100%',
-    paddingHorizontal: spacing.base,
-    gap: spacing.xs,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  progressText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.semibold,
-  },
-  progressPercentage: {
-    color: colors.primary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  track: {
-    height: 8,
-    width: '100%',
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.pill,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  bar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radii.pill,
-    ...shadows.glowLime,
+    gap: spacing.base,
   },
   problemCard: {
     width: '100%',
-    backgroundColor: colors.surface,
     borderRadius: radii.card,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  problemCardError: {
-    borderColor: colors.error,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   questionText: {
-    color: colors.textPrimary,
     fontSize: typography.sizes.hero,
-    fontWeight: typography.weights.bold,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     letterSpacing: -0.5,
   },
   equalsRow: {
@@ -225,36 +200,18 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   equalsSign: {
-    color: colors.textSecondary,
     fontSize: typography.sizes.h1,
-    fontWeight: typography.weights.light,
   },
   inputBox: {
     minWidth: 90,
-    height: 60,
-    backgroundColor: colors.surfaceElevated,
+    height: 56,
     borderRadius: radii.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
   },
-  inputBoxActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceActive,
-    ...shadows.glowLime,
-  },
-  inputBoxError: {
-    borderColor: colors.error,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-  },
   inputText: {
-    color: colors.primary,
     fontSize: typography.sizes.h1,
-    fontWeight: typography.weights.bold,
-  },
-  inputTextError: {
-    color: colors.error,
   },
 });

@@ -1,16 +1,22 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Switch } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { Alarm } from '../../domain/types';
-import { DISMISSAL_METHODS } from '../../domain/dismissal-registry';
 import { formatDisplayTime } from '../../domain/time-format';
 import { useAlarmStore } from '../../store/alarm-store';
-import { colors, spacing, radii, typography, shadows } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeProvider';
+import { typography, spacing, radii, hitSlop } from '../../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
-interface AlarmCardProps {
+export interface AlarmCardProps {
   alarm: Alarm;
   onPress: () => void;
   onToggle: () => void;
+  isPeeking?: boolean;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -20,8 +26,12 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
   onPress,
   onToggle,
 }) => {
+  const { colors } = useTheme();
   const timeFormat = useAlarmStore((state) => state.timeFormat);
   const display = formatDisplayTime(alarm.time, timeFormat);
+  const scale = useSharedValue(1);
+
+  const [hours, minutes] = display.time.split(':');
 
   const getDaysSummary = (): string => {
     if (!alarm.days || alarm.days.length === 0) return 'Once';
@@ -41,201 +51,165 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
     return alarm.days.map((d) => DAY_NAMES[d]).join(', ');
   };
 
+  const gamesCount = alarm.steps ? alarm.steps.length : 1;
+  const gamesLabel = `${gamesCount} ${gamesCount === 1 ? 'Game' : 'Games'}`;
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 220 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 220 });
+  };
+
+  const handlePress = () => {
+    Haptics.selectionAsync().catch(() => {});
+    onPress();
+  };
+
   const handleToggle = () => {
     Haptics.selectionAsync().catch(() => {});
     onToggle();
   };
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <TouchableOpacity
-      testID={`alarm-card-${alarm.id}`}
-      style={[
-        styles.card,
-        alarm.enabled ? styles.cardActive : styles.cardDisabled,
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel={`Alarm for ${display.formatted}, ${alarm.label || 'Alarm'}`}
-    >
-      <View style={styles.topRow}>
-        <View style={styles.timeContainer}>
-          <View style={styles.timeRow}>
+    <Animated.View style={[styles.cardWrapper, animatedStyle]}>
+      <Pressable
+        testID={`alarm-card-${alarm.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`Alarm for ${display.formatted}, ${alarm.label || 'Alarm'}`}
+        hitSlop={hitSlop}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surface,
+            borderColor: alarm.enabled ? colors.borderFocus : colors.borderSubtle,
+          },
+        ]}
+      >
+        <View style={styles.topRow}>
+          {/* Huge Numerals: Hours black, Minutes grey */}
+          <View style={styles.timeGroup}>
             <Text
               style={[
-                styles.timeText,
-                !alarm.enabled && styles.timeTextDisabled,
+                styles.hoursText,
+                {
+                  color: alarm.enabled ? colors.ink : colors.muted,
+                  fontFamily: typography.fonts.light,
+                },
               ]}
             >
-              {display.time}
+              {hours}:
+              <Text style={{ color: colors.muted, fontFamily: typography.fonts.light }}>
+                {minutes}
+              </Text>
             </Text>
-            {display.ampm && (
+            {display.ampm ? (
               <Text
                 style={[
-                  styles.ampmBadgeText,
-                  !alarm.enabled && styles.ampmBadgeTextDisabled,
+                  styles.ampmText,
+                  {
+                    color: colors.muted,
+                    fontFamily: typography.fonts.medium,
+                  },
                 ]}
               >
                 {display.ampm}
               </Text>
-            )}
+            ) : null}
           </View>
+
+          {/* Toggle Switch */}
+          <Switch
+            testID={`alarm-toggle-${alarm.id}`}
+            value={alarm.enabled}
+            onValueChange={handleToggle}
+            trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+            thumbColor={colors.switchThumb}
+            accessibilityLabel={`Toggle alarm for ${display.formatted}`}
+          />
+        </View>
+
+        {/* Caption & Games Badge Line */}
+        <View style={styles.bottomRow}>
           <Text
+            numberOfLines={1}
             style={[
-              styles.repeatText,
-              !alarm.enabled && styles.repeatTextDisabled,
+              styles.labelLine,
+              { color: colors.ink, fontFamily: typography.fonts.medium },
             ]}
           >
-            {getDaysSummary()}
+            {alarm.label || 'Alarm'}
+            <Text style={{ color: colors.muted }}> · {getDaysSummary()}</Text>
           </Text>
+
+          <View style={[styles.badge, { backgroundColor: colors.surfaceAlt }]}>
+            <Text
+              style={[
+                styles.badgeText,
+                { color: colors.ink, fontFamily: typography.fonts.bold },
+              ]}
+            >
+              {gamesLabel}
+            </Text>
+          </View>
         </View>
-
-        <Switch
-          testID={`alarm-toggle-${alarm.id}`}
-          value={alarm.enabled}
-          onValueChange={handleToggle}
-          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-          thumbColor={colors.switchThumb}
-          accessibilityLabel={`Toggle alarm for ${display.formatted}`}
-        />
-      </View>
-
-      <View style={styles.bottomRow}>
-        <Text
-          style={[
-            styles.labelText,
-            !alarm.enabled && styles.labelTextDisabled,
-          ]}
-          numberOfLines={1}
-        >
-          {alarm.label || 'Wake Up Challenge'}
-        </Text>
-
-        <View style={styles.stepsPillContainer}>
-          {alarm.steps.map((step, idx) => {
-            const def = DISMISSAL_METHODS[step.methodId];
-            return (
-              <View
-                key={idx}
-                style={[
-                  styles.stepBadge,
-                  alarm.enabled && styles.stepBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.stepBadgeText,
-                    alarm.enabled && styles.stepBadgeTextActive,
-                  ]}
-                >
-                  {def?.title || step.methodId} · {step.target}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-    </TouchableOpacity>
+      </Pressable>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
+  cardWrapper: {
+    marginVertical: spacing.sm,
+  },
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radii.card,
-    padding: spacing.lg,
+    padding: spacing.base,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    ...shadows.card,
-    gap: spacing.md,
-  },
-  cardActive: {
-    borderColor: 'rgba(112, 244, 100, 0.2)',
-  },
-  cardDisabled: {
-    opacity: 0.6,
-    borderColor: colors.borderSubtle,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  timeContainer: {
-    gap: 2,
-  },
-  timeRow: {
+  timeGroup: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: spacing.xs,
   },
-  timeText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.time,
-    fontWeight: typography.weights.bold,
-    letterSpacing: -0.5,
+  hoursText: {
+    fontSize: typography.sizes.hero,
+    letterSpacing: -1,
   },
-  timeTextDisabled: {
-    color: colors.textMuted,
-  },
-  ampmBadgeText: {
-    color: colors.primary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 0.5,
-  },
-  ampmBadgeTextDisabled: {
-    color: colors.textMuted,
-  },
-  repeatText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
-  },
-  repeatTextDisabled: {
-    color: colors.textMuted,
+  ampmText: {
+    fontSize: typography.sizes.bodyLarge,
+    marginLeft: spacing.sm,
   },
   bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
+    marginTop: spacing.md,
   },
-  labelText: {
-    color: colors.textSecondary,
+  labelLine: {
     fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
     flex: 1,
+    marginRight: spacing.sm,
   },
-  labelTextDisabled: {
-    color: colors.textMuted,
-  },
-  stepsPillContainer: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  stepBadge: {
-    backgroundColor: colors.surfaceElevated,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+  badge: {
     borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
   },
-  stepBadgeActive: {
-    borderColor: 'rgba(112, 244, 100, 0.35)',
-    backgroundColor: 'rgba(112, 244, 100, 0.08)',
-  },
-  stepBadgeText: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  stepBadgeTextActive: {
-    color: colors.primary,
+  badgeText: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.5,
   },
 });
