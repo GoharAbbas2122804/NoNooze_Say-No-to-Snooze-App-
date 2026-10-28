@@ -71,4 +71,39 @@ jest.mock('lucide-react-native', () => {
     }
   );
 });
+// Mock sonner-native
+jest.mock('sonner-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const toastMock = jest.fn((msg) => String(msg));
+  toastMock.success = jest.fn((msg) => String(msg));
+  toastMock.error = jest.fn((msg) => String(msg));
+  toastMock.warning = jest.fn((msg) => String(msg));
+  toastMock.info = jest.fn((msg) => String(msg));
+  toastMock.promise = jest.fn((p) => p);
+  toastMock.dismiss = jest.fn();
 
+  return {
+    toast: toastMock,
+    Toaster: (props) => React.createElement(View, { testID: 'sonner-toaster', ...props }),
+  };
+});
+
+// Mock @shopify/react-native-skia
+jest.mock('@shopify/react-native-skia', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    Canvas: (props) => React.createElement(View, { testID: 'skia-canvas', ...props }),
+    Circle: () => null,
+    Rect: () => null,
+    Group: ({ children }) => children,
+    Paint: () => null,
+    vec: (x, y) => ({ x, y }),
+    useFont: () => null,
+    Skia: {
+      Paint: () => ({}),
+      Color: () => ({}),
+    },
+  };
+});
