@@ -29,6 +29,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { notify } from '../ui/notify';
 import { typography, spacing, radii } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
+import { playAlarmAudio, stopAlarmAudio } from '../services/sound-service';
 
 export default function RingingScreen() {
   useKeepAwake();
@@ -100,9 +101,21 @@ export default function RingingScreen() {
     return () => subscription.remove();
   }, []);
 
+  // Start looped alarm audio on mount and stop on unmount
+  useEffect(() => {
+    const soundToPlay = activeAlarm?.sound || 'Melodian';
+    const volume = useAlarmStore.getState().alarmVolume ?? 80;
+    playAlarmAudio(soundToPlay, volume, true).catch(() => {});
+
+    return () => {
+      stopAlarmAudio();
+    };
+  }, [activeAlarm?.sound]);
+
   // When step runner completes all steps
   useEffect(() => {
     if (state.status === 'completed') {
+      stopAlarmAudio();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       notify.success('Alarm dismissed!');
       getAlarmScheduler().stopRinging().catch(() => {});

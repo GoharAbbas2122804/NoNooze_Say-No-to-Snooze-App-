@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,24 +16,50 @@ import {
   AlertTriangle,
   Bell,
   Clock,
-  Smartphone,
   BatteryCharging,
   Volume2,
-  Vibrate,
-  Lock,
+  Volume1,
+  VolumeX,
   Layers,
-  Check,
+  Sun,
+  Moon,
+  Laptop,
+  Play,
+  Minus,
+  Plus,
+  FolderPlus,
 } from 'lucide-react-native';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import { PermissionStatus } from '../services/alarm-scheduler/types';
 import { useAlarmStore } from '../store/alarm-store';
-import { colors, spacing, radii, typography, shadows, iconSizes } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeProvider';
+import { ALARM_SOUNDS } from '../constants/sounds';
+import { pickSoundFromDevice, previewSoundAudio } from '../services/sound-service';
+import { spacing, radii, typography, iconSizes } from '../theme/tokens';
+import { RoundButton } from '../components/ui/RoundButton';
+import { notify } from '../ui/notify';
 import { APP_NAME } from '../constants/app';
 import * as Haptics from 'expo-haptics';
 
 export default function SettingsScreen() {
+  const { colors, isDark, themeMode, setThemeMode } = useTheme();
+
   const timeFormat = useAlarmStore((state) => state.timeFormat);
   const setTimeFormat = useAlarmStore((state) => state.setTimeFormat);
+
+  const alarmVolume = useAlarmStore((state) => state.alarmVolume);
+  const setAlarmVolume = useAlarmStore((state) => state.setAlarmVolume);
+
+  const defaultSound = useAlarmStore((state) => state.defaultSound);
+  const setDefaultSound = useAlarmStore((state) => state.setDefaultSound);
+  const customSounds = useAlarmStore((state) => state.customSounds || []);
+  const addCustomSound = useAlarmStore((state) => state.addCustomSound);
+
+  const gentleWake = useAlarmStore((state) => state.gentleWake);
+  const setGentleWake = useAlarmStore((state) => state.setGentleWake);
+
+  const vibrate = useAlarmStore((state) => state.vibrate);
+  const setVibrate = useAlarmStore((state) => state.setVibrate);
 
   const [status, setStatus] = useState<PermissionStatus>({
     notifications: false,
@@ -40,11 +67,6 @@ export default function SettingsScreen() {
     fullScreenIntent: true,
     batteryOptimizationIgnored: false,
   });
-
-  // Sound & Wake-up preference state
-  const [volume, setVolume] = useState(80);
-  const [gentleWake, setGentleWake] = useState(true);
-  const [vibrate, setVibrate] = useState(true);
 
   const checkStatus = useCallback(async () => {
     try {
@@ -95,7 +117,28 @@ export default function SettingsScreen() {
 
   const handleAdjustVolume = (newVol: number) => {
     Haptics.selectionAsync().catch(() => {});
-    setVolume(Math.max(10, Math.min(100, newVol)));
+    const clamped = Math.max(0, Math.min(100, Math.round(newVol)));
+    setAlarmVolume(clamped);
+  };
+
+  const handlePreviewSound = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    previewSoundAudio(defaultSound, alarmVolume);
+    notify.info(`Playing preview at ${alarmVolume}% volume`);
+  };
+
+  const handlePickCustomDefaultSound = async () => {
+    try {
+      const picked = await pickSoundFromDevice();
+      if (picked) {
+        addCustomSound(picked);
+        setDefaultSound(picked.name);
+        notify.success(`Default sound set to "${picked.name}"`);
+        previewSoundAudio(picked.uri || picked.id, alarmVolume).catch(() => {});
+      }
+    } catch {
+      notify.error('Could not import audio file from device');
+    }
   };
 
   const isAllGranted =
@@ -103,25 +146,32 @@ export default function SettingsScreen() {
     status.exactAlarms &&
     status.batteryOptimizationIgnored;
 
+  const VolumeIcon =
+    alarmVolume === 0 ? VolumeX : alarmVolume < 50 ? Volume1 : Volume2;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       {/* Top Header */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity
+      <View style={[styles.topHeader, { borderBottomColor: colors.borderSubtle }]}>
+        <RoundButton
+          variant="surface"
+          size={44}
           onPress={() => router.back()}
-          style={styles.backButton}
           accessibilityLabel="Back to Alarms"
-          activeOpacity={0.7}
         >
-          <ArrowLeft size={iconSizes.md} color={colors.textPrimary} />
-        </TouchableOpacity>
+          <ArrowLeft size={iconSizes.md} color={colors.ink} />
+        </RoundButton>
 
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Preferences & Reliability</Text>
+          <Text style={[styles.headerTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+            Settings
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+            Preferences & Reliability
+          </Text>
         </View>
 
-        <View style={styles.headerRightSpacer} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
@@ -132,428 +182,671 @@ export default function SettingsScreen() {
         <View
           style={[
             styles.bannerCard,
-            isAllGranted ? styles.bannerCardSuccess : styles.bannerCardWarning,
+            {
+              backgroundColor: isAllGranted
+                ? isDark
+                  ? '#13231B'
+                  : '#D1E7DD'
+                : isDark
+                ? '#241D12'
+                : '#FDF0D5',
+              borderColor: isAllGranted
+                ? isDark
+                  ? '#1F4732'
+                  : '#A3CFBB'
+                : isDark
+                ? '#4D3814'
+                : '#FCE0A6',
+            },
           ]}
         >
           <View
             style={[
               styles.bannerIconCircle,
-              isAllGranted ? styles.bannerIconCircleSuccess : styles.bannerIconCircleWarning,
+              {
+                backgroundColor: isAllGranted
+                  ? isDark
+                    ? '#1E3E2D'
+                    : '#C1E0D0'
+                  : isDark
+                  ? '#3A290E'
+                  : '#FAD896',
+              },
             ]}
           >
             {isAllGranted ? (
-              <ShieldCheck size={24} color={colors.primary} />
+              <ShieldCheck size={24} color={isDark ? '#34D399' : '#0F5132'} />
             ) : (
-              <AlertTriangle size={24} color={colors.accent} />
+              <AlertTriangle size={24} color={isDark ? colors.accentYellow : '#854D0E'} />
             )}
           </View>
 
-          <View style={styles.bannerTextContainer}>
-            <Text style={styles.bannerTitle}>
-              {isAllGranted
-                ? 'Alarms are 100% Reliable'
-                : 'Reliability Exemptions Required'}
+          <View style={styles.bannerTextGroup}>
+            <Text
+              style={[
+                styles.bannerTitle,
+                {
+                  color: isAllGranted
+                    ? isDark
+                      ? '#34D399'
+                      : '#0F5132'
+                    : isDark
+                    ? colors.accentYellow
+                    : '#854D0E',
+                  fontFamily: typography.fonts.bold,
+                },
+              ]}
+            >
+              {isAllGranted ? '100% Reliable & Protected' : 'Setup Required for Alarms'}
             </Text>
-            <Text style={styles.bannerSubtitle}>
+            <Text
+              style={[
+                styles.bannerDescription,
+                {
+                  color: isAllGranted
+                    ? isDark
+                      ? '#A7F3D0'
+                      : '#146C43'
+                    : isDark
+                    ? '#FDE68A'
+                    : '#997404',
+                  fontFamily: typography.fonts.regular,
+                },
+              ]}
+            >
               {isAllGranted
-                ? 'System exemptions active. Alarms will ring through Doze and screen lock.'
-                : 'Android may delay background alarms without exact alarm and battery exemptions.'}
+                ? `${APP_NAME} will reliably wake your phone from sleep, doze, and lock screen.`
+                : 'Grant critical Android exemptions to ensure alarms never fail while you sleep.'}
             </Text>
           </View>
         </View>
 
-        {/* Section: Time Format & Display */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>TIME & CLOCK DISPLAY</Text>
-            <Text style={styles.sectionBadge}>
-              {timeFormat === '12h' ? '12-Hour Active' : '24-Hour Active'}
-            </Text>
-          </View>
+        {/* SECTION 1: APPEARANCE & THEME */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            APPEARANCE & THEME
+          </Text>
+        </View>
 
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <Clock size={iconSizes.md} color={colors.primary} />
-            </View>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.medium }]}>
+            Color Mode ({themeMode.toUpperCase()})
+          </Text>
+          <Text style={[styles.rowDescription, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+            Choose Light mode for soft paper slate or Dark mode for OLED midnight black.
+          </Text>
 
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Time Format</Text>
-              </View>
-              <Text style={styles.rowDescription}>
-                Choose between 12-hour (AM/PM) and 24-hour display across your alarms, alarm editor, and home clock.
-              </Text>
-
-              {/* Segmented Control Pills */}
-              <View style={styles.formatSegmentContainer}>
-                <TouchableOpacity
-                  testID="time-format-12h-btn"
-                  style={[
-                    styles.formatSegmentBtn,
-                    timeFormat === '12h' && styles.formatSegmentBtnActive,
-                  ]}
+          <View style={styles.segmentedRow}>
+            {[
+              { id: 'system', label: 'System', Icon: Laptop },
+              { id: 'light', label: 'Light', Icon: Sun },
+              { id: 'dark', label: 'Dark', Icon: Moon },
+            ].map(({ id, label, Icon }) => {
+              const active = themeMode === id;
+              return (
+                <Pressable
+                  key={id}
+                  testID={`theme-mode-${id}-btn`}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
-                    setTimeFormat('12h');
+                    setThemeMode(id as any);
                   }}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="12-hour time format with AM and PM"
-                >
-                  <Text
-                    style={[
-                      styles.formatSegmentText,
-                      timeFormat === '12h' && styles.formatSegmentTextActive,
-                    ]}
-                  >
-                    12-Hour (AM / PM)
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  testID="time-format-24h-btn"
                   style={[
-                    styles.formatSegmentBtn,
-                    timeFormat === '24h' && styles.formatSegmentBtnActive,
+                    styles.segmentButton,
+                    {
+                      backgroundColor: active ? colors.accentYellow : colors.surfaceAlt,
+                      borderColor: active ? colors.accentYellow : colors.borderSubtle,
+                    },
                   ]}
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    setTimeFormat('24h');
-                  }}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="24-hour military time format"
                 >
+                  <Icon
+                    size={16}
+                    color={active ? '#0D0D0D' : colors.ink}
+                    style={{ marginRight: 6 }}
+                  />
                   <Text
                     style={[
-                      styles.formatSegmentText,
-                      timeFormat === '24h' && styles.formatSegmentTextActive,
+                      styles.segmentButtonText,
+                      {
+                        color: active ? '#0D0D0D' : colors.ink,
+                        fontFamily: active ? typography.fonts.bold : typography.fonts.medium,
+                      },
                     ]}
                   >
-                    24-Hour (24h)
+                    {label}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        {/* Section 1: Android System Permissions */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>RELIABILITY & PERMISSIONS</Text>
-            <Text style={styles.sectionBadge}>
-              {isAllGranted ? 'All Active' : 'Action Needed'}
+        {/* SECTION 2: TIME & CLOCK DISPLAY */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            TIME & CLOCK DISPLAY
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.medium }]}>
+            Clock Time Format
+          </Text>
+          <Text style={[styles.rowDescription, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+            Select standard 12-hour display with AM/PM indicators or continuous 24-hour time.
+          </Text>
+
+          <View style={styles.segmentedRow}>
+            <TouchableOpacity
+              testID="time-format-12h-btn"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setTimeFormat('12h');
+              }}
+              style={[
+                styles.segmentButton,
+                {
+                  backgroundColor: timeFormat === '12h' ? colors.accentYellow : colors.surfaceAlt,
+                  borderColor: timeFormat === '12h' ? colors.accentYellow : colors.borderSubtle,
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.segmentButtonText,
+                  {
+                    color: timeFormat === '12h' ? '#0D0D0D' : colors.ink,
+                    fontFamily: timeFormat === '12h' ? typography.fonts.bold : typography.fonts.medium,
+                  },
+                ]}
+              >
+                12-Hour (AM / PM)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="time-format-24h-btn"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setTimeFormat('24h');
+              }}
+              style={[
+                styles.segmentButton,
+                {
+                  backgroundColor: timeFormat === '24h' ? colors.accentYellow : colors.surfaceAlt,
+                  borderColor: timeFormat === '24h' ? colors.accentYellow : colors.borderSubtle,
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.segmentButtonText,
+                  {
+                    color: timeFormat === '24h' ? '#0D0D0D' : colors.ink,
+                    fontFamily: timeFormat === '24h' ? typography.fonts.bold : typography.fonts.medium,
+                  },
+                ]}
+              >
+                24-Hour (24h)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* SECTION 3: SOUND & WAKE-UP EXPERIENCE */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            SOUND & WAKE-UP EXPERIENCE
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          {/* Default Alarm Sound Name */}
+          <View style={styles.soundHeaderRow}>
+            <View style={styles.soundTitleGroup}>
+              <VolumeIcon size={iconSizes.sm} color={colors.accentYellow} />
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold, marginLeft: 8 }]}>
+                Default Alarm Sound
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handlePreviewSound}
+              style={[styles.previewBadge, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderSubtle }]}
+              accessibilityLabel="Preview sound"
+            >
+              <Play size={12} color={colors.ink} />
+              <Text style={[styles.previewBadgeText, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Preview
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sound selection chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.soundChipsContainer}
+          >
+            {/* Pick from device chip */}
+            <Pressable
+              testID="settings-import-sound-btn"
+              onPress={handlePickCustomDefaultSound}
+              style={[
+                styles.soundChip,
+                {
+                  backgroundColor: colors.surfaceAlt,
+                  borderColor: colors.borderSubtle,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                },
+              ]}
+            >
+              <FolderPlus size={14} color={colors.accentYellow} style={{ marginRight: 6 }} />
+              <Text
+                style={[
+                  styles.soundChipText,
+                  {
+                    color: colors.ink,
+                    fontFamily: typography.fonts.medium,
+                  },
+                ]}
+              >
+                + Pick from Device
+              </Text>
+            </Pressable>
+
+            {/* Custom sounds */}
+            {customSounds.map((s) => {
+              const isSelected = defaultSound === s.name || defaultSound === s.id;
+              return (
+                <Pressable
+                  key={s.id}
+                  testID={`sound-chip-${s.id}`}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setDefaultSound(s.name);
+                  }}
+                  style={[
+                    styles.soundChip,
+                    {
+                      backgroundColor: isSelected ? colors.ink : colors.surfaceAlt,
+                      borderColor: isSelected ? colors.ink : colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.soundChipText,
+                      {
+                        color: isSelected ? colors.background : colors.muted,
+                        fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                      },
+                    ]}
+                  >
+                    {s.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            {/* Built-in sounds */}
+            {ALARM_SOUNDS.map((s) => {
+              const isSelected = defaultSound === s.id || defaultSound === s.name;
+              return (
+                <Pressable
+                  key={s.id}
+                  testID={`sound-chip-${s.id}`}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setDefaultSound(s.name);
+                  }}
+                  style={[
+                    styles.soundChip,
+                    {
+                      backgroundColor: isSelected ? colors.ink : colors.surfaceAlt,
+                      borderColor: isSelected ? colors.ink : colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.soundChipText,
+                      {
+                        color: isSelected ? colors.background : colors.muted,
+                        fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                      },
+                    ]}
+                  >
+                    {s.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={[styles.rowDivider, { backgroundColor: colors.borderSubtle }]} />
+
+          {/* Interactive Volume Controls */}
+          <View style={styles.volumeHeaderRow}>
+            <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.medium }]}>
+              Alarm Volume
+            </Text>
+            <Text
+              testID="volume-display-text"
+              style={[styles.volumeValueText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+            >
+              {alarmVolume}%
             </Text>
           </View>
 
-          {/* 1. Notifications */}
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <Bell size={iconSizes.md} color={colors.textSecondary} />
-            </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Notifications</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    status.notifications ? styles.statusBadgeGranted : styles.statusBadgeRequired,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      status.notifications ? styles.statusBadgeTextGranted : styles.statusBadgeTextRequired,
-                    ]}
-                  >
-                    {status.notifications ? '✓ Granted' : 'Required'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.rowDescription}>
-                Displays ringing alerts and persistent notification controls.
-              </Text>
-
-              {!status.notifications && (
-                <TouchableOpacity
-                  testID="enable-notifications-btn"
-                  style={styles.actionButton}
-                  onPress={handleRequestNotifications}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionButtonText}>Allow Notifications</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.rowDivider} />
-
-          {/* 2. Exact Alarms */}
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <Clock size={iconSizes.md} color={colors.textSecondary} />
-            </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Exact Alarms</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    status.exactAlarms ? styles.statusBadgeGranted : styles.statusBadgeRequired,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      status.exactAlarms ? styles.statusBadgeTextGranted : styles.statusBadgeTextRequired,
-                    ]}
-                  >
-                    {status.exactAlarms ? '✓ Granted' : 'Required'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.rowDescription}>
-                Wakes the device at the exact target minute without power saving delay.
-              </Text>
-
-              {!status.exactAlarms && (
-                <TouchableOpacity
-                  testID="enable-exact-alarms-btn"
-                  style={styles.actionButton}
-                  onPress={handleOpenExactAlarms}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionButtonText}>Open Exact Alarm Settings</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.rowDivider} />
-
-          {/* 3. Full-Screen Intent */}
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <Smartphone size={iconSizes.md} color={colors.textSecondary} />
-            </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Full-Screen Wakeup</Text>
-                <View style={[styles.statusBadge, styles.statusBadgeGranted]}>
-                  <Text style={[styles.statusBadgeText, styles.statusBadgeTextGranted]}>
-                    ✓ Enabled
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.rowDescription}>
-                Presents the interactive challenge screen directly over lock screen.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.rowDivider} />
-
-          {/* 4. Battery Optimization */}
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <BatteryCharging size={iconSizes.md} color={colors.textSecondary} />
-            </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Battery Optimization</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    status.batteryOptimizationIgnored
-                      ? styles.statusBadgeGranted
-                      : styles.statusBadgeWarning,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      status.batteryOptimizationIgnored
-                        ? styles.statusBadgeTextGranted
-                        : styles.statusBadgeTextWarning,
-                    ]}
-                  >
-                    {status.batteryOptimizationIgnored ? '✓ Exempt' : 'Recommended'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.rowDescription}>
-                Prevents Android Doze mode and OEM task killers from killing the alarm.
-              </Text>
-
-              {!status.batteryOptimizationIgnored && (
-                <TouchableOpacity
-                  testID="enable-battery-opt-btn"
-                  style={styles.actionButton}
-                  onPress={handleOpenBatteryOpt}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionButtonText}>Disable Battery Optimization</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Section 2: Sound & Wake-Up Preferences (Inspiration 2 Match) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SOUND & WAKE-UP EXPERIENCE</Text>
-
-          {/* Sound Name & Slider (Design Inspiration 2 Match) */}
-          <View style={styles.soundCard}>
-            <View style={styles.soundHeaderRow}>
-              <View style={styles.soundTitleGroup}>
-                <Volume2 size={iconSizes.sm} color={colors.textSecondary} />
-                <Text style={styles.soundLabel}>Alarm Sound</Text>
-              </View>
-              <Text style={styles.soundValue}>Melodian</Text>
-            </View>
-
-            {/* Interactive Volume Track (Inspiration 2 neon green track) */}
-            <View style={styles.sliderTrackContainer}>
-              <View style={styles.sliderTrackBackground}>
-                <View style={[styles.sliderTrackActive, { width: `${volume}%` }]} />
-              </View>
+          {/* Interactive Tap Track */}
+          <View style={styles.sliderTrackContainer}>
+            <Pressable
+              testID="volume-track-slider"
+              style={[styles.sliderTrackBackground, { backgroundColor: colors.surfaceAlt }]}
+              onPress={(evt) => {
+                const { locationX } = evt.nativeEvent;
+                // Track width is estimated ~300dp, calculate ratio
+                const percentage = Math.max(10, Math.min(100, Math.round((locationX / 280) * 100)));
+                handleAdjustVolume(percentage);
+              }}
+            >
               <View
                 style={[
-                  styles.sliderThumb,
-                  { left: `${Math.max(0, Math.min(94, volume - 4))}%` },
+                  styles.sliderTrackActive,
+                  { width: `${alarmVolume}%`, backgroundColor: colors.accentYellow },
                 ]}
               />
-            </View>
-
-            <View style={styles.sliderLabelsRow}>
-              <TouchableOpacity onPress={() => handleAdjustVolume(volume - 15)}>
-                <Text style={styles.sliderActionText}>− Lower</Text>
-              </TouchableOpacity>
-              <Text style={styles.volumePercentText}>{volume}%</Text>
-              <TouchableOpacity onPress={() => handleAdjustVolume(volume + 15)}>
-                <Text style={styles.sliderActionText}>+ Louder</Text>
-              </TouchableOpacity>
-            </View>
+            </Pressable>
+            <View
+              style={[
+                styles.sliderThumb,
+                {
+                  left: `${Math.max(0, Math.min(94, alarmVolume - 4))}%`,
+                  backgroundColor: colors.ink,
+                  borderColor: colors.accentYellow,
+                },
+              ]}
+            />
           </View>
 
-          <View style={styles.rowDivider} />
+          {/* Quick Step Buttons: -10%, Presets, +10% */}
+          <View style={styles.volumeActionsRow}>
+            <RoundButton
+              testID="volume-down-btn"
+              variant="surface"
+              size={44}
+              onPress={() => handleAdjustVolume(alarmVolume - 10)}
+              accessibilityLabel="Lower alarm volume"
+            >
+              <Minus size={18} color={colors.ink} strokeWidth={2.5} />
+            </RoundButton>
+
+            {/* Quick volume preset chips */}
+            <View style={styles.presetButtonsRow}>
+              {[25, 50, 75, 100].map((val) => {
+                const isSelected = Math.abs(alarmVolume - val) < 5;
+                return (
+                  <Pressable
+                    key={val}
+                    testID={`volume-preset-${val}`}
+                    onPress={() => handleAdjustVolume(val)}
+                    style={[
+                      styles.presetChip,
+                      {
+                        backgroundColor: isSelected ? colors.accentYellow : colors.surfaceAlt,
+                        borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        {
+                          color: isSelected ? '#0D0D0D' : colors.ink,
+                          fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                        },
+                      ]}
+                    >
+                      {val}%
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <RoundButton
+              testID="volume-up-btn"
+              variant="surface"
+              size={44}
+              onPress={() => handleAdjustVolume(alarmVolume + 10)}
+              accessibilityLabel="Raise alarm volume"
+            >
+              <Plus size={18} color={colors.ink} strokeWidth={2.5} />
+            </RoundButton>
+          </View>
+
+          <View style={[styles.rowDivider, { backgroundColor: colors.borderSubtle }]} />
 
           {/* Gentle Wake-up toggle */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleTextGroup}>
-              <Text style={styles.rowTitle}>Gentle Wake-Up (Volume Ramp)</Text>
-              <Text style={styles.rowDescription}>
-                Gradually raises volume from 10% to target over 30s so you wake calmly at 5 AM.
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.medium }]}>
+                Gentle Wake-Up (Volume Ramp)
+              </Text>
+              <Text style={[styles.rowDescription, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                Gradually raises volume from 10% to target over 30s so you wake calmly.
               </Text>
             </View>
             <Switch
+              testID="gentle-wake-switch"
               value={gentleWake}
-              onValueChange={setGentleWake}
-              trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-              thumbColor={colors.switchThumb}
+              onValueChange={(val) => {
+                Haptics.selectionAsync().catch(() => {});
+                setGentleWake(val);
+              }}
+              trackColor={{ false: colors.disabled, true: colors.accentYellow }}
+              thumbColor={colors.ink}
             />
           </View>
 
-          <View style={styles.rowDivider} />
+          <View style={[styles.rowDivider, { backgroundColor: colors.borderSubtle }]} />
 
           {/* Vibration toggle */}
           <View style={styles.toggleRow}>
             <View style={styles.toggleTextGroup}>
-              <View style={styles.iconInlineGroup}>
-                <Vibrate size={iconSizes.sm} color={colors.textSecondary} />
-                <Text style={styles.rowTitle}>Vibrate With Sound</Text>
-              </View>
-              <Text style={styles.rowDescription}>
-                Pulsing tactile haptic patterns synchronized with the alarm melody.
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.medium }]}>
+                Vibrate on Alarm
+              </Text>
+              <Text style={[styles.rowDescription, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                Dual sensory arousal pattern pulses simultaneously with audio tone.
               </Text>
             </View>
             <Switch
+              testID="vibrate-switch"
               value={vibrate}
-              onValueChange={setVibrate}
-              trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
-              thumbColor={colors.switchThumb}
+              onValueChange={(val) => {
+                Haptics.selectionAsync().catch(() => {});
+                setVibrate(val);
+              }}
+              trackColor={{ false: colors.disabled, true: colors.accentYellow }}
+              thumbColor={colors.ink}
             />
           </View>
         </View>
 
-        {/* Section 3: Strict Anti-Snooze Protocol */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ANTI-SNOOZE ENFORCEMENT</Text>
+        {/* SECTION 4: SYSTEM RELIABILITY EXEMPTIONS */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            SYSTEM RELIABILITY PERMISSIONS
+          </Text>
+        </View>
 
-          <View style={styles.settingRow}>
-            <View style={styles.rowIconCircle}>
-              <Lock size={iconSizes.md} color={colors.primary} />
+        {/* Exact Alarms Permission Card */}
+        <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <View style={styles.permissionIconCol}>
+            <View style={[styles.permIconCircle, { backgroundColor: colors.surfaceAlt }]}>
+              <Clock size={iconSizes.sm} color={status.exactAlarms ? colors.accentYellow : colors.muted} />
             </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Unskippable Challenge Mode</Text>
-                <View style={[styles.statusBadge, styles.statusBadgeGranted]}>
-                  <Text style={[styles.statusBadgeText, styles.statusBadgeTextGranted]}>
-                    Locked Active
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.rowDescription}>
-                Snooze buttons are eliminated. Alarms will only silence once you finish your configured mental or physical challenges.
+          </View>
+          <View style={styles.permissionContentCol}>
+            <View style={styles.permissionTitleRow}>
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Schedule Exact Alarms
               </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: status.exactAlarms ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    { color: status.exactAlarms ? colors.success : colors.error, fontFamily: typography.fonts.bold },
+                  ]}
+                >
+                  {status.exactAlarms ? 'GRANTED' : 'REQUIRED'}
+                </Text>
+              </View>
             </View>
+            <Text style={[styles.permissionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Guarantees the Android AlarmManager fires at the exact scheduled second, even in deep sleep.
+            </Text>
+            {!status.exactAlarms && (
+              <TouchableOpacity
+                style={[styles.grantButton, { backgroundColor: colors.accentYellow }]}
+                onPress={handleOpenExactAlarms}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.grantButtonText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
+                  Open Exact Alarm Settings
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Section 4: Developer & About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ABOUT & TOOLS</Text>
-
-          <TouchableOpacity
-            style={styles.clickableRow}
-            onPress={handleOpenGallery}
-            activeOpacity={0.7}
-          >
-            <View style={styles.rowIconCircle}>
-              <Layers size={iconSizes.md} color={colors.accent} />
+        {/* Battery Optimization Card */}
+        <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <View style={styles.permissionIconCol}>
+            <View style={[styles.permIconCircle, { backgroundColor: colors.surfaceAlt }]}>
+              <BatteryCharging
+                size={iconSizes.sm}
+                color={status.batteryOptimizationIgnored ? colors.accentYellow : colors.muted}
+              />
             </View>
-
-            <View style={styles.rowContent}>
-              <View style={styles.rowTitleHeader}>
-                <Text style={styles.rowTitle}>Component Design Gallery</Text>
-                <Text style={styles.chevronText}>→</Text>
-              </View>
-              <Text style={styles.rowDescription}>
-                Preview design tokens, button states, and theme elements.
+          </View>
+          <View style={styles.permissionContentCol}>
+            <View style={styles.permissionTitleRow}>
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Ignore Battery Optimizations
               </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: status.batteryOptimizationIgnored ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    {
+                      color: status.batteryOptimizationIgnored ? colors.success : colors.error,
+                      fontFamily: typography.fonts.bold,
+                    },
+                  ]}
+                >
+                  {status.batteryOptimizationIgnored ? 'EXEMPTED' : 'REQUIRED'}
+                </Text>
+              </View>
             </View>
-          </TouchableOpacity>
-
-          <View style={styles.rowDivider} />
-
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>{APP_NAME} Version</Text>
-            <Text style={styles.aboutValue}>v1.0.0 (Build 2026)</Text>
+            <Text style={[styles.permissionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Prevents Android Doze mode from sleeping or deferring alarms when your screen is off overnight.
+            </Text>
+            {!status.batteryOptimizationIgnored && (
+              <TouchableOpacity
+                style={[styles.grantButton, { backgroundColor: colors.accentYellow }]}
+                onPress={handleOpenBatteryOpt}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.grantButtonText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
+                  Exempt from Battery Optimization
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Done / Continue Button */}
+        {/* Notifications Permission Card */}
+        <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <View style={styles.permissionIconCol}>
+            <View style={[styles.permIconCircle, { backgroundColor: colors.surfaceAlt }]}>
+              <Bell size={iconSizes.sm} color={status.notifications ? colors.accentYellow : colors.muted} />
+            </View>
+          </View>
+          <View style={styles.permissionContentCol}>
+            <View style={styles.permissionTitleRow}>
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Notifications & Full Screen
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: status.notifications ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    { color: status.notifications ? colors.success : colors.error, fontFamily: typography.fonts.bold },
+                  ]}
+                >
+                  {status.notifications ? 'ACTIVE' : 'ACTION NEEDED'}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.permissionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Required to show full-screen lockscreen alarms with wakefulness challenges.
+            </Text>
+            {!status.notifications && (
+              <TouchableOpacity
+                style={[styles.grantButton, { backgroundColor: colors.accentYellow }]}
+                onPress={handleRequestNotifications}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.grantButtonText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
+                  Enable Notifications
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Developer Design System Gallery Link */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            DEVELOPER & DESIGN TOKENS
+          </Text>
+        </View>
         <TouchableOpacity
-          testID="permissions-continue-btn"
-          style={[
-            styles.continueButton,
-            isAllGranted ? styles.continueButtonPrimary : styles.continueButtonSecondary,
-          ]}
-          onPress={() => router.back()}
+          onPress={handleOpenGallery}
+          style={[styles.galleryNavCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
           activeOpacity={0.8}
         >
-          <Check size={iconSizes.md} color={colors.textInverse} strokeWidth={2.5} />
-          <Text style={styles.continueButtonText}>
-            {isAllGranted ? 'Save & Return to Alarms' : 'Done & Return'}
-          </Text>
+          <View style={styles.galleryNavLeft}>
+            <Layers size={iconSizes.md} color={colors.accentYellow} />
+            <View style={styles.galleryNavTextGroup}>
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Design Tokens & Component Gallery
+              </Text>
+              <Text style={[styles.rowDescription, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                View live palette swatches, typography scales, buttons, and test states.
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -563,366 +856,260 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.base,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
   headerTitleContainer: {
     alignItems: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: typography.sizes.h3,
-    fontWeight: typography.weights.bold,
+    letterSpacing: -0.4,
   },
   headerSubtitle: {
-    color: colors.textSecondary,
     fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.medium,
-  },
-  headerRightSpacer: {
-    width: 44,
+    marginTop: 2,
   },
   container: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+    padding: spacing.base,
     paddingBottom: 60,
   },
   bannerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.base,
-    borderRadius: radii.xl,
+    borderRadius: radii.card,
     borderWidth: 1,
-    gap: spacing.md,
-  },
-  bannerCardSuccess: {
-    backgroundColor: 'rgba(112, 244, 100, 0.08)',
-    borderColor: 'rgba(112, 244, 100, 0.3)',
-  },
-  bannerCardWarning: {
-    backgroundColor: 'rgba(255, 149, 0, 0.1)',
-    borderColor: 'rgba(255, 149, 0, 0.35)',
+    marginBottom: spacing.lg,
   },
   bannerIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: radii.pill,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: spacing.md,
   },
-  bannerIconCircleSuccess: {
-    backgroundColor: 'rgba(112, 244, 100, 0.18)',
-  },
-  bannerIconCircleWarning: {
-    backgroundColor: 'rgba(255, 149, 0, 0.18)',
-  },
-  bannerTextContainer: {
+  bannerTextGroup: {
     flex: 1,
-    gap: 2,
   },
   bannerTitle: {
-    color: colors.textPrimary,
     fontSize: typography.sizes.body,
-    fontWeight: typography.weights.bold,
+    marginBottom: 4,
   },
-  bannerSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    lineHeight: 16,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.card,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    ...shadows.card,
-    gap: spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    letterSpacing: 0.8,
-  },
-  sectionBadge: {
-    color: colors.primary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  clickableRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  rowIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surfaceElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    marginTop: 2,
-  },
-  rowContent: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  rowTitleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rowTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-  },
-  rowDescription: {
-    color: colors.textSecondary,
+  bannerDescription: {
     fontSize: typography.sizes.bodySmall,
     lineHeight: 18,
   },
-  rowDivider: {
-    height: 1,
-    backgroundColor: colors.borderSubtle,
+  sectionHeaderRow: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radii.pill,
+  sectionTitle: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 1.2,
   },
-  statusBadgeGranted: {
-    backgroundColor: 'rgba(112, 244, 100, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(112, 244, 100, 0.3)',
-  },
-  statusBadgeRequired: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  statusBadgeWarning: {
-    backgroundColor: 'rgba(255, 149, 0, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 149, 0, 0.3)',
-  },
-  statusBadgeText: {
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-  },
-  statusBadgeTextGranted: {
-    color: colors.primary,
-  },
-  statusBadgeTextRequired: {
-    color: colors.error,
-  },
-  statusBadgeTextWarning: {
-    color: colors.accent,
-  },
-  actionButton: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: spacing.xs,
-  },
-  actionButtonText: {
-    color: colors.accent,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.bold,
-  },
-  soundCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.xl,
+  card: {
+    borderRadius: radii.card,
     padding: spacing.base,
-    gap: spacing.md,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    marginBottom: spacing.md,
+  },
+  rowTitle: {
+    fontSize: typography.sizes.body,
+  },
+  rowDescription: {
+    fontSize: typography.sizes.bodySmall,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  segmentButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: radii.pill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  segmentButtonText: {
+    fontSize: typography.sizes.bodySmall,
   },
   soundHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
   soundTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  previewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  previewBadgeText: {
+    fontSize: typography.sizes.caption,
+  },
+  soundChipsContainer: {
+    flexDirection: 'row',
     gap: spacing.xs,
+    paddingVertical: spacing.xs,
   },
-  soundLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
+  soundChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
-  soundValue: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.bold,
+  soundChipText: {
+    fontSize: typography.sizes.caption,
+  },
+  volumeHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  volumeValueText: {
+    fontSize: typography.sizes.bodyLarge,
   },
   sliderTrackContainer: {
-    height: 24,
+    height: 36,
     justifyContent: 'center',
     position: 'relative',
+    marginVertical: spacing.xs,
   },
   sliderTrackBackground: {
-    height: 6,
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radii.pill,
+    height: 8,
+    borderRadius: 4,
     overflow: 'hidden',
+    width: '100%',
   },
   sliderTrackActive: {
     height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radii.pill,
-    ...shadows.glowLime,
+    borderRadius: 4,
   },
   sliderThumb: {
     position: 'absolute',
     width: 20,
     height: 20,
-    borderRadius: radii.pill,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.primary,
-    top: 2,
-    ...shadows.card,
+    top: 8,
   },
-  sliderLabelsRow: {
+  volumeActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
   },
-  sliderActionText: {
-    color: colors.primary,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+  presetButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  volumePercentText: {
-    color: colors.textPrimary,
+  presetChip: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  presetChipText: {
     fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
+  },
+  rowDivider: {
+    height: 1,
+    marginVertical: spacing.md,
   },
   toggleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'space-between',
   },
   toggleTextGroup: {
     flex: 1,
-    gap: 2,
+    marginRight: spacing.md,
   },
-  iconInlineGroup: {
+  permissionCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  chevronText: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.bold,
-  },
-  aboutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  aboutLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  aboutValue: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.medium,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 54,
-    borderRadius: radii.pill,
-    marginTop: spacing.sm,
-  },
-  continueButtonPrimary: {
-    backgroundColor: colors.primary,
-    ...shadows.glowLime,
-  },
-  continueButtonSecondary: {
-    backgroundColor: colors.accent,
-    ...shadows.glowAccent,
-  },
-  continueButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.bold,
-  },
-  formatSegmentContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    padding: 3,
-    marginTop: spacing.sm,
-    gap: 4,
+    padding: spacing.base,
+    borderRadius: radii.card,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    marginBottom: spacing.md,
   },
-  formatSegmentBtn: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.sm,
+  permissionIconCol: {
+    marginRight: spacing.md,
+  },
+  permIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  formatSegmentBtnActive: {
-    backgroundColor: colors.primary,
-    ...shadows.glowLime,
+  permissionContentCol: {
+    flex: 1,
   },
-  formatSegmentText: {
+  permissionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  statusBadgeText: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.5,
+  },
+  permissionDesc: {
     fontSize: typography.sizes.bodySmall,
-    fontWeight: typography.weights.semibold,
-    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  formatSegmentTextActive: {
-    color: colors.textInverse,
-    fontWeight: typography.weights.bold,
+  grantButton: {
+    marginTop: spacing.sm,
+    height: 40,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.base,
+  },
+  grantButtonText: {
+    fontSize: typography.sizes.bodySmall,
+  },
+  galleryNavCard: {
+    padding: spacing.base,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    marginBottom: spacing.lg,
+  },
+  galleryNavLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  galleryNavTextGroup: {
+    flex: 1,
   },
 });

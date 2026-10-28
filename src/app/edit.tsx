@@ -6,18 +6,39 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X, Check, Bell, Zap, Repeat, ChevronUp, ChevronDown } from 'lucide-react-native';
+import {
+  X,
+  Check,
+  Bell,
+  Zap,
+  Repeat,
+  Play,
+  Smile,
+  Sun,
+  Dumbbell,
+  Calculator,
+  Plus,
+  Minus,
+  FolderPlus,
+  Music,
+  ChevronRight,
+} from 'lucide-react-native';
 import { useAlarmStore } from '../store/alarm-store';
-import { DayOfWeek, Step } from '../domain/types';
+import { DayOfWeek, Step, MethodId } from '../domain/types';
 import { parseTo12Hour, formatTo24Hour } from '../domain/time-format';
 import { useTheme } from '../theme/ThemeProvider';
 import { WheelPickerColumn } from '../components/alarm/WheelPicker';
 import { RoundButton } from '../components/ui/RoundButton';
 import { notify } from '../ui/notify';
 import { typography, spacing, radii, iconSizes } from '../theme/tokens';
+import { ALARM_SOUNDS } from '../constants/sounds';
+import { pickSoundFromDevice, previewSoundAudio } from '../services/sound-service';
+import { DISMISSAL_METHODS } from '../domain/dismissal-registry';
 import * as Haptics from 'expo-haptics';
 
 export default function EditAlarmScreen() {
@@ -30,9 +51,14 @@ export default function EditAlarmScreen() {
   );
 
   const timeFormat = useAlarmStore((state) => state.timeFormat);
+  const defaultStoreSound = useAlarmStore((state) => state.defaultSound);
+  const customSounds = useAlarmStore((state) => state.customSounds || []);
+  const addCustomSound = useAlarmStore((state) => state.addCustomSound);
   const addAlarm = useAlarmStore((state) => state.addAlarm);
   const updateAlarm = useAlarmStore((state) => state.updateAlarm);
   const deleteAlarm = useAlarmStore((state) => state.deleteAlarm);
+
+  const [pageScrollEnabled, setPageScrollEnabled] = useState(true);
 
   // Form State based on 12h or 24h format
   const initialTimeParts = React.useMemo(() => {
@@ -54,23 +80,27 @@ export default function EditAlarmScreen() {
   const [days, setDays] = useState<DayOfWeek[]>(existingAlarm?.days || []);
   const [label, setLabel] = useState(existingAlarm?.label || '');
   const [steps, setSteps] = useState<Step[]>(
-    existingAlarm?.steps || [{ methodId: 'math', target: 3 }]
+    existingAlarm?.steps || [{ methodId: 'face', target: 1 }]
   );
-  const [soundName] = useState(existingAlarm?.sound || 'Wake up');
+  const [soundName, setSoundName] = useState(
+    existingAlarm?.sound || defaultStoreSound || 'Melodian'
+  );
 
-  // Descending Hours list (e.g. 12, 11, 10... 01 for 12h; 23, 22... 00 for 24h)
+  // Modals
+  const [soundModalVisible, setSoundModalVisible] = useState(false);
+  const [challengeModalVisible, setChallengeModalVisible] = useState(false);
+
+  // Clockwise / Chronological Hours list: 01, 02... 12 for 12h; 00, 01... 23 for 24h
   const hoursList = React.useMemo(() => {
     if (timeFormat === '12h') {
-      return [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n) =>
-        n.toString().padStart(2, '0')
-      );
+      return Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
     }
-    return Array.from({ length: 24 }, (_, i) => (23 - i).toString().padStart(2, '0'));
+    return Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
   }, [timeFormat]);
 
-  // Descending Minutes list (e.g. 59, 58, 57... 00)
+  // Clockwise / Chronological Minutes list: 00, 01, 02... 59
   const minutesList = React.useMemo(() => {
-    return Array.from({ length: 60 }, (_, i) => (59 - i).toString().padStart(2, '0'));
+    return Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
   }, []);
 
   const selectedHourIndex = Math.max(0, hoursList.indexOf(hours));
@@ -88,53 +118,88 @@ export default function EditAlarmScreen() {
     }
   };
 
-  const adjustHour = (delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = parseInt(hours, 10) || 1;
-    if (timeFormat === '12h') {
-      const next = (((current - 1 + delta) % 12) + 12) % 12 + 1;
-      setHours(next.toString().padStart(2, '0'));
-    } else {
-      const next = (current + delta + 24) % 24;
-      setHours(next.toString().padStart(2, '0'));
-    }
-  };
-
-  const adjustMinute = (delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = parseInt(minutes, 10) || 0;
-    const next = (current + delta + 60) % 60;
-    setMinutes(next.toString().padStart(2, '0'));
-  };
-
+  // Repeat helper
   const getDaysSummary = (): string => {
-    if (!days || days.length === 0) return 'No (Once)';
+    if (!days || days.length === 0) return 'Once (No repeat)';
     if (days.length === 7) return 'Every day';
-    if (days.length === 5 && [1, 2, 3, 4, 5].every((d) => days.includes(d as any))) {
-      return 'Weekdays';
+    if (
+      days.length === 5 &&
+      [1, 2, 3, 4, 5].every((d) => days.includes(d as DayOfWeek))
+    ) {
+      return 'Weekdays (Mon–Fri)';
     }
-    if (days.length === 2 && [0, 6].every((d) => days.includes(d as any))) {
-      return 'Weekends';
+    if (
+      days.length === 2 &&
+      [0, 6].every((d) => days.includes(d as DayOfWeek))
+    ) {
+      return 'Weekends (Sat–Sun)';
     }
-    return `${days.length} days`;
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days.map((d) => dayLabels[d]).join(', ');
   };
 
-  const toggleDayCycle = () => {
+  const toggleDay = (day: DayOfWeek) => {
     Haptics.selectionAsync().catch(() => {});
-    if (days.length === 0) {
-      setDays([1, 2, 3, 4, 5]); // Weekdays
-    } else if (days.length === 5) {
-      setDays([0, 1, 2, 3, 4, 5, 6]); // Everyday
+    if (days.includes(day)) {
+      setDays(days.filter((d) => d !== day));
     } else {
-      setDays([]); // Once
+      setDays([...days, day].sort());
     }
   };
 
-  const cycleChallengeTarget = () => {
+  const applyPreset = (preset: 'once' | 'weekdays' | 'weekends' | 'everyday') => {
     Haptics.selectionAsync().catch(() => {});
-    const currentTarget = steps[0]?.target || 3;
-    const nextTarget = currentTarget >= 5 ? 1 : currentTarget + 1;
-    setSteps([{ methodId: 'math', target: nextTarget }]);
+    switch (preset) {
+      case 'once':
+        setDays([]);
+        break;
+      case 'weekdays':
+        setDays([1, 2, 3, 4, 5]);
+        break;
+      case 'weekends':
+        setDays([0, 6]);
+        break;
+      case 'everyday':
+        setDays([0, 1, 2, 3, 4, 5, 6]);
+        break;
+    }
+  };
+
+  const handleSelectSound = (soundIdOrName: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSoundName(soundIdOrName);
+    previewSoundAudio(soundIdOrName, 80).catch(() => {});
+  };
+
+  const handlePickCustomSound = async () => {
+    try {
+      const picked = await pickSoundFromDevice();
+      if (picked) {
+        addCustomSound(picked);
+        setSoundName(picked.name);
+        notify.success(`Imported "${picked.name}"`);
+        previewSoundAudio(picked.uri || picked.id, 80).catch(() => {});
+        setSoundModalVisible(false);
+      }
+    } catch {
+      notify.error('Could not import audio file from device');
+    }
+  };
+
+  const handleSelectChallenge = (methodId: MethodId) => {
+    Haptics.selectionAsync().catch(() => {});
+    const def = DISMISSAL_METHODS[methodId];
+    setSteps([{ methodId, target: def?.defaultTarget || 1 }]);
+    setChallengeModalVisible(false);
+  };
+
+  const handleAdjustTarget = (delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    const current = steps[0];
+    if (!current) return;
+    const def = DISMISSAL_METHODS[current.methodId];
+    const newTarget = Math.max(def.minTarget, Math.min(def.maxTarget, current.target + delta));
+    setSteps([{ ...current, target: newTarget }]);
   };
 
   const handleSave = () => {
@@ -153,6 +218,7 @@ export default function EditAlarmScreen() {
         days,
         label,
         steps,
+        sound: soundName,
         enabled: true,
       });
 
@@ -193,9 +259,12 @@ export default function EditAlarmScreen() {
     router.back();
   };
 
+  const currentChallengeDef = DISMISSAL_METHODS[steps[0]?.methodId || 'math'];
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surfaceAlt }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
+        scrollEnabled={pageScrollEnabled}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -203,11 +272,11 @@ export default function EditAlarmScreen() {
         {/* Title Header */}
         <View style={styles.headerRow}>
           <Text style={[styles.screenTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-            {isEditing ? 'Edit Alarm' : 'Choose time'}
+            {isEditing ? 'Edit Alarm' : 'Set Alarm Time'}
           </Text>
           {isEditing ? (
             <Pressable testID="delete-alarm-button" onPress={handleDelete}>
-              <Text style={[styles.deleteText, { color: colors.error, fontFamily: typography.fonts.medium }]}>
+              <Text style={[styles.deleteText, { color: colors.error, fontFamily: typography.fonts.bold }]}>
                 Delete
               </Text>
             </Pressable>
@@ -226,7 +295,8 @@ export default function EditAlarmScreen() {
               style={[
                 styles.ampmButton,
                 {
-                  backgroundColor: ampm === 'AM' ? colors.ink : colors.surface,
+                  backgroundColor: ampm === 'AM' ? colors.accentYellow : colors.surface,
+                  borderColor: ampm === 'AM' ? colors.accentYellow : colors.borderSubtle,
                 },
               ]}
             >
@@ -234,8 +304,8 @@ export default function EditAlarmScreen() {
                 style={[
                   styles.ampmButtonText,
                   {
-                    color: ampm === 'AM' ? colors.background : colors.muted,
-                    fontFamily: typography.fonts.bold,
+                    color: ampm === 'AM' ? '#0D0D0D' : colors.muted,
+                    fontFamily: ampm === 'AM' ? typography.fonts.bold : typography.fonts.medium,
                   },
                 ]}
               >
@@ -251,7 +321,8 @@ export default function EditAlarmScreen() {
               style={[
                 styles.ampmButton,
                 {
-                  backgroundColor: ampm === 'PM' ? colors.ink : colors.surface,
+                  backgroundColor: ampm === 'PM' ? colors.accentYellow : colors.surface,
+                  borderColor: ampm === 'PM' ? colors.accentYellow : colors.borderSubtle,
                 },
               ]}
             >
@@ -259,8 +330,8 @@ export default function EditAlarmScreen() {
                 style={[
                   styles.ampmButtonText,
                   {
-                    color: ampm === 'PM' ? colors.background : colors.muted,
-                    fontFamily: typography.fonts.bold,
+                    color: ampm === 'PM' ? '#0D0D0D' : colors.muted,
+                    fontFamily: ampm === 'PM' ? typography.fonts.bold : typography.fonts.medium,
                   },
                 ]}
               >
@@ -270,136 +341,224 @@ export default function EditAlarmScreen() {
           </View>
         ) : null}
 
-        {/* Dual Curved Lens Wheel Pickers */}
+        {/* Digital Selected Readout Pill */}
+        <View style={[styles.digitalPill, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <Text
+            testID="hours-display"
+            style={[styles.digitalPillNum, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+          >
+            {hours}
+          </Text>
+          <Text style={[styles.digitalPillColon, { color: colors.muted }]}>:</Text>
+          <Text
+            testID="minutes-display"
+            style={[styles.digitalPillNum, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+          >
+            {minutes}
+          </Text>
+          {timeFormat === '12h' && (
+            <Text style={[styles.digitalPillAmpm, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+              {ampm}
+            </Text>
+          )}
+        </View>
+
+        {/* Dual Curved Lens Wheel Pickers (Clockwise Swiping, Non-Blocking) */}
         <View style={styles.wheelWrapper}>
           <WheelPickerColumn
+            testID="hours-wheel-picker"
             items={hoursList}
             selectedIndex={selectedHourIndex}
             onSelectIndex={handleHourSelect}
             isLeftColumn={true}
+            onInteractionStart={() => setPageScrollEnabled(false)}
+            onInteractionEnd={() => setPageScrollEnabled(true)}
           />
           <WheelPickerColumn
+            testID="minutes-wheel-picker"
             items={minutesList}
             selectedIndex={selectedMinuteIndex}
             onSelectIndex={handleMinuteSelect}
             isLeftColumn={false}
+            onInteractionStart={() => setPageScrollEnabled(false)}
+            onInteractionEnd={() => setPageScrollEnabled(true)}
           />
         </View>
 
-        {/* Accessible Quick Stepper Controls */}
-        <View style={styles.stepperContainer}>
-          <View style={styles.stepperGroup}>
-            <RoundButton
-              testID="hour-up"
-              accessibilityLabel="Increase hour"
-              variant="surface"
-              size={44}
-              onPress={() => adjustHour(1)}
-            >
-              <ChevronUp size={20} color={colors.ink} />
-            </RoundButton>
-            <Text
-              testID="hours-display"
-              style={[styles.stepperDisplayText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
-            >
-              {hours}
-            </Text>
-            <RoundButton
-              testID="hour-down"
-              accessibilityLabel="Decrease hour"
-              variant="surface"
-              size={44}
-              onPress={() => adjustHour(-1)}
-            >
-              <ChevronDown size={20} color={colors.ink} />
-            </RoundButton>
-          </View>
-
-          <View style={styles.stepperGroup}>
-            <RoundButton
-              testID="minute-up"
-              accessibilityLabel="Increase minute"
-              variant="surface"
-              size={44}
-              onPress={() => adjustMinute(5)}
-            >
-              <ChevronUp size={20} color={colors.ink} />
-            </RoundButton>
-            <Text
-              testID="minutes-display"
-              style={[styles.stepperDisplayText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
-            >
-              {minutes}
-            </Text>
-            <RoundButton
-              testID="minute-down"
-              accessibilityLabel="Decrease minute"
-              variant="surface"
-              size={44}
-              onPress={() => adjustMinute(-5)}
-            >
-              <ChevronDown size={20} color={colors.ink} />
-            </RoundButton>
-          </View>
-        </View>
-
         {/* Alarm Label Input */}
-        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
           <TextInput
             testID="alarm-label-input"
             value={label}
             onChangeText={setLabel}
-            placeholder="Alarm name (optional)"
+            placeholder="Alarm label (e.g. Work Wake Up)"
             placeholderTextColor={colors.muted}
             style={[styles.textInput, { color: colors.ink, fontFamily: typography.fonts.medium }]}
           />
         </View>
 
-        {/* Three Option Row: Sound / Challenge / Repeat (Strictly NO snooze) */}
-        <View style={styles.optionRow}>
-          {/* Sound */}
-          <View style={[styles.optionCard, { backgroundColor: colors.surface }]}>
-            <Bell size={iconSizes.sm} color={colors.ink} strokeWidth={2} />
-            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
-              Sound
-            </Text>
-            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-              {soundName}
+        {/* REPEAT SECTION (User Request 5: Properly Visible & Adjustable) */}
+        <View style={[styles.repeatCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <View style={styles.repeatHeaderRow}>
+            <View style={styles.repeatTitleGroup}>
+              <Repeat size={16} color={colors.accentYellow} />
+              <Text style={[styles.cardTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Repeat Schedule
+              </Text>
+            </View>
+            <Text
+              testID="repeat-summary-text"
+              style={[styles.repeatSummaryText, { color: colors.muted, fontFamily: typography.fonts.medium }]}
+            >
+              {getDaysSummary()}
             </Text>
           </View>
 
-          {/* Challenge (replaces Snooze) */}
+          {/* Quick Preset Pills */}
+          <View style={styles.presetRow}>
+            {[
+              { id: 'once', label: 'Once' },
+              { id: 'weekdays', label: 'Weekdays' },
+              { id: 'weekends', label: 'Weekends' },
+              { id: 'everyday', label: 'Every day' },
+            ].map((p) => {
+              const isSelected =
+                (p.id === 'once' && days.length === 0) ||
+                (p.id === 'everyday' && days.length === 7) ||
+                (p.id === 'weekdays' &&
+                  days.length === 5 &&
+                  [1, 2, 3, 4, 5].every((d) => days.includes(d as DayOfWeek))) ||
+                (p.id === 'weekends' &&
+                  days.length === 2 &&
+                  [0, 6].every((d) => days.includes(d as DayOfWeek)));
+
+              return (
+                <Pressable
+                  key={p.id}
+                  testID={`repeat-preset-${p.id}`}
+                  onPress={() => applyPreset(p.id as any)}
+                  style={[
+                    styles.presetPill,
+                    {
+                      backgroundColor: isSelected ? colors.accentYellow : colors.surfaceAlt,
+                      borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.presetPillText,
+                      {
+                        color: isSelected ? '#0D0D0D' : colors.ink,
+                        fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                      },
+                    ]}
+                  >
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* 7 Interactive Day Chips (M, T, W, T, F, S, S) */}
+          <View style={styles.daysChipRow}>
+            {[
+              { day: 1 as DayOfWeek, label: 'M' },
+              { day: 2 as DayOfWeek, label: 'T' },
+              { day: 3 as DayOfWeek, label: 'W' },
+              { day: 4 as DayOfWeek, label: 'T' },
+              { day: 5 as DayOfWeek, label: 'F' },
+              { day: 6 as DayOfWeek, label: 'S' },
+              { day: 0 as DayOfWeek, label: 'S' },
+            ].map(({ day, label }) => {
+              const active = days.includes(day);
+              return (
+                <Pressable
+                  key={day}
+                  testID={`repeat-day-${day}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toggle day ${label}`}
+                  onPress={() => toggleDay(day)}
+                  style={[
+                    styles.dayChip,
+                    {
+                      backgroundColor: active ? colors.accentYellow : colors.surfaceAlt,
+                      borderColor: active ? colors.accentYellow : colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.dayChipText,
+                      {
+                        color: active ? '#0D0D0D' : colors.ink,
+                        fontFamily: active ? typography.fonts.bold : typography.fonts.medium,
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* TWO OPTION TILES: SOUND & CHALLENGE */}
+        <View style={styles.optionsTilesRow}>
+          {/* Sound Selector Tile */}
           <Pressable
-            onPress={cycleChallengeTarget}
-            style={[styles.optionCard, { backgroundColor: colors.surface }]}
+            testID="sound-select-btn"
+            onPress={() => setSoundModalVisible(true)}
+            style={[styles.tileCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
           >
-            <Zap size={iconSizes.sm} color={colors.accentYellow} strokeWidth={2} />
-            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
-              Challenge
+            <View style={styles.tileHeader}>
+              <Bell size={18} color={colors.accentYellow} />
+              <Text style={[styles.tileCategory, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+                SOUND
+              </Text>
+            </View>
+            <Text
+              testID="selected-sound-name"
+              numberOfLines={1}
+              style={[styles.tileValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+            >
+              {soundName}
             </Text>
-            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-              Math ({steps[0]?.target || 3}x)
+            <Text style={[styles.tileSub, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Tap to change
             </Text>
           </Pressable>
 
-          {/* Repeat */}
+          {/* AI Challenge Selector Tile */}
           <Pressable
-            onPress={toggleDayCycle}
-            style={[styles.optionCard, { backgroundColor: colors.surface }]}
+            testID="challenge-select-btn"
+            onPress={() => setChallengeModalVisible(true)}
+            style={[styles.tileCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
           >
-            <Repeat size={iconSizes.sm} color={colors.ink} strokeWidth={2} />
-            <Text style={[styles.optionLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
-              Repeat
+            <View style={styles.tileHeader}>
+              <Zap size={18} color={colors.accentYellow} />
+              <Text style={[styles.tileCategory, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+                AI CHALLENGE
+              </Text>
+            </View>
+            <Text
+              testID="selected-challenge-name"
+              numberOfLines={1}
+              style={[styles.tileValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+            >
+              {currentChallengeDef?.title || 'Challenge'} ({steps[0]?.target || 1}x)
             </Text>
-            <Text style={[styles.optionValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-              {getDaysSummary()}
+            <Text style={[styles.tileSub, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Tap to choose game
             </Text>
           </Pressable>
         </View>
       </ScrollView>
 
-      {/* Bottom Bar: Round X (Left), "Choose time" (Center), Round Check (Right) */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.surfaceAlt }]}>
+      {/* BOTTOM ACTION BAR */}
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.borderSubtle }]}>
         <RoundButton
           testID="cancel-edit-button"
           accessibilityLabel="Cancel editing alarm"
@@ -411,19 +570,304 @@ export default function EditAlarmScreen() {
         </RoundButton>
 
         <Text style={[styles.bottomBarLabel, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-          Choose time
+          {isEditing ? 'Save Changes' : 'Create Alarm'}
         </Text>
 
         <RoundButton
           testID="save-alarm-button"
           accessibilityLabel="Save Alarm"
-          variant="ink"
+          variant="accentYellow"
           size={56}
           onPress={handleSave}
         >
-          <Check size={iconSizes.md} color={colors.background} strokeWidth={2.6} />
+          <Check size={iconSizes.md} color="#0D0D0D" strokeWidth={2.6} />
         </RoundButton>
       </View>
+
+      {/* SOUND PICKER MODAL */}
+      <Modal
+        visible={soundModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSoundModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Choose Alarm Sound
+              </Text>
+              <RoundButton
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setSoundModalVisible(false)}
+              >
+                <X size={18} color={colors.ink} />
+              </RoundButton>
+            </View>
+
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              {/* Button to pick custom audio file from device storage */}
+              <Pressable
+                testID="pick-device-sound-btn"
+                onPress={handlePickCustomSound}
+                style={[
+                  styles.deviceAudioBtn,
+                  {
+                    backgroundColor: colors.surfaceAlt,
+                    borderColor: colors.borderSubtle,
+                  },
+                ]}
+              >
+                <View style={[styles.deviceAudioIconBox, { backgroundColor: colors.surface }]}>
+                  <FolderPlus size={20} color={colors.accentYellow} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.deviceAudioTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                    Choose from Device
+                  </Text>
+                  <Text style={[styles.deviceAudioSubtitle, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                    Select any MP3, WAV, AAC from storage
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.muted} />
+              </Pressable>
+
+              {/* Custom device sounds section */}
+              {customSounds.length > 0 && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.soundSectionLabel, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+                    DEVICE STORAGE ({customSounds.length})
+                  </Text>
+                  {customSounds.map((s) => {
+                    const isSelected = soundName === s.name || soundName === s.id;
+                    return (
+                      <Pressable
+                        key={s.id}
+                        testID={`sound-option-${s.id}`}
+                        onPress={() => {
+                          handleSelectSound(s.name);
+                          setSoundModalVisible(false);
+                        }}
+                        style={[
+                          styles.soundOptionRow,
+                          {
+                            backgroundColor: isSelected ? 'rgba(242, 230, 58, 0.12)' : colors.surfaceAlt,
+                            borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
+                          },
+                        ]}
+                      >
+                        <View style={styles.soundOptionLeft}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Music size={14} color={isSelected ? colors.accentYellow : colors.muted} style={{ marginRight: 6 }} />
+                            <Text
+                              style={[
+                                styles.soundOptionName,
+                                {
+                                  color: isSelected ? colors.accentYellow : colors.ink,
+                                  fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                                },
+                              ]}
+                            >
+                              {s.name}
+                            </Text>
+                          </View>
+                          <Text style={[styles.soundOptionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                            {s.description}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={() => previewSoundAudio(s.uri || s.id, 80)}
+                          style={[styles.previewPlayBtn, { backgroundColor: colors.surface }]}
+                        >
+                          <Play size={14} color={colors.ink} />
+                        </TouchableOpacity>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Built-in sounds & voices */}
+              <Text style={[styles.soundSectionLabel, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+                BUILT-IN TONES & AI VOICES
+              </Text>
+
+              {ALARM_SOUNDS.map((s) => {
+                const isSelected = soundName === s.name || soundName === s.id;
+                return (
+                  <Pressable
+                    key={s.id}
+                    testID={`sound-option-${s.name}`}
+                    onPress={() => {
+                      handleSelectSound(s.name);
+                      setSoundModalVisible(false);
+                    }}
+                    style={[
+                      styles.soundOptionRow,
+                      {
+                        backgroundColor: isSelected ? 'rgba(242, 230, 58, 0.12)' : colors.surfaceAlt,
+                        borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
+                      },
+                    ]}
+                  >
+                    <View style={styles.soundOptionLeft}>
+                      <Text
+                        style={[
+                          styles.soundOptionName,
+                          {
+                            color: isSelected ? colors.accentYellow : colors.ink,
+                            fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                          },
+                        ]}
+                      >
+                        {s.name}
+                      </Text>
+                      <Text style={[styles.soundOptionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                        {s.description}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => previewSoundAudio(s.id, 80)}
+                      style={[styles.previewPlayBtn, { backgroundColor: colors.surface }]}
+                    >
+                      <Play size={14} color={colors.ink} />
+                    </TouchableOpacity>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CHALLENGE PICKER MODAL */}
+      <Modal
+        visible={challengeModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setChallengeModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Choose AI & Wake Challenge
+              </Text>
+              <RoundButton
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setChallengeModalVisible(false)}
+              >
+                <X size={18} color={colors.ink} />
+              </RoundButton>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }}>
+              {[
+                {
+                  id: 'face' as MethodId,
+                  title: 'AI Face Wake Check',
+                  desc: 'Deep learning vision verifies wide smile and eye alertness.',
+                  Icon: Smile,
+                },
+                {
+                  id: 'environment' as MethodId,
+                  title: 'Environment & Light Scan',
+                  desc: 'Scan morning lumens (≥ 75 Lux) to break sleep inertia.',
+                  Icon: Sun,
+                },
+                {
+                  id: 'math' as MethodId,
+                  title: 'Math Problems',
+                  desc: 'Solve arithmetic equations to wake up your brain.',
+                  Icon: Calculator,
+                },
+                {
+                  id: 'pushups' as MethodId,
+                  title: 'Pushup Motion Reps',
+                  desc: 'Physical reps verified by camera pose tracking.',
+                  Icon: Dumbbell,
+                },
+              ].map(({ id: mId, title, desc, Icon }) => {
+                const isSelected = steps[0]?.methodId === mId;
+                return (
+                  <Pressable
+                    key={mId}
+                    testID={`challenge-option-${mId}`}
+                    onPress={() => handleSelectChallenge(mId)}
+                    style={[
+                      styles.challengeOptionCard,
+                      {
+                        backgroundColor: isSelected ? 'rgba(242, 230, 58, 0.12)' : colors.surfaceAlt,
+                        borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
+                      },
+                    ]}
+                  >
+                    <View style={styles.challengeIconCol}>
+                      <View
+                        style={[
+                          styles.challengeIconCircle,
+                          { backgroundColor: isSelected ? colors.accentYellow : colors.surface },
+                        ]}
+                      >
+                        <Icon size={20} color={isSelected ? '#0D0D0D' : colors.ink} />
+                      </View>
+                    </View>
+                    <View style={styles.challengeInfoCol}>
+                      <Text
+                        style={[
+                          styles.challengeTitle,
+                          {
+                            color: isSelected ? colors.accentYellow : colors.ink,
+                            fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
+                          },
+                        ]}
+                      >
+                        {title}
+                      </Text>
+                      <Text style={[styles.challengeDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+                        {desc}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Target Adjuster */}
+            <View style={[styles.targetAdjusterBox, { backgroundColor: colors.surfaceAlt }]}>
+              <Text style={[styles.targetLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                Target Goal ({currentChallengeDef?.unit || 'reps'}):
+              </Text>
+              <View style={styles.targetControlsRow}>
+                <RoundButton
+                  size={36}
+                  variant="surface"
+                  onPress={() => handleAdjustTarget(-1)}
+                >
+                  <Minus size={14} color={colors.ink} />
+                </RoundButton>
+                <Text
+                  testID="challenge-target-value"
+                  style={[styles.targetValueText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+                >
+                  {steps[0]?.target || 1}
+                </Text>
+                <RoundButton
+                  size={36}
+                  variant="surface"
+                  onPress={() => handleAdjustTarget(1)}
+                >
+                  <Plus size={14} color={colors.ink} />
+                </RoundButton>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -434,7 +878,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: spacing.base,
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   headerRow: {
     flexDirection: 'row',
@@ -452,67 +896,139 @@ const styles = StyleSheet.create({
   ampmRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     gap: spacing.sm,
   },
   ampmButton: {
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
+    borderWidth: 1,
   },
   ampmButtonText: {
     fontSize: typography.sizes.bodySmall,
   },
+  digitalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
+  },
+  digitalPillNum: {
+    fontSize: 22,
+    letterSpacing: -0.5,
+  },
+  digitalPillColon: {
+    fontSize: 20,
+    marginHorizontal: 4,
+  },
+  digitalPillAmpm: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
   wheelWrapper: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginVertical: spacing.sm,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: spacing.sm,
-  },
-  stepperGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stepperDisplayText: {
-    fontSize: typography.sizes.h3,
-    minWidth: 32,
-    textAlign: 'center',
+    marginVertical: spacing.xs,
   },
   inputCard: {
     borderRadius: radii.card,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
+    borderWidth: 1,
     marginVertical: spacing.sm,
   },
   textInput: {
     fontSize: typography.sizes.body,
     paddingVertical: spacing.xs,
   },
-  optionRow: {
+  repeatCard: {
+    borderRadius: radii.card,
+    padding: spacing.base,
+    borderWidth: 1,
+    marginVertical: spacing.xs,
+  },
+  repeatHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginTop: spacing.base,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
-  optionCard: {
+  repeatTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardTitle: {
+    fontSize: typography.sizes.body,
+  },
+  repeatSummaryText: {
+    fontSize: typography.sizes.caption,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  presetPill: {
+    flex: 1,
+    paddingVertical: spacing.xs + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  presetPillText: {
+    fontSize: typography.sizes.micro,
+  },
+  daysChipRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  dayChip: {
+    flex: 1,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  dayChipText: {
+    fontSize: typography.sizes.bodySmall,
+  },
+  optionsTilesRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  tileCard: {
     flex: 1,
     borderRadius: radii.card,
-    padding: spacing.md,
+    padding: spacing.base,
+    borderWidth: 1,
+  },
+  tileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
-  optionLabel: {
-    fontSize: typography.sizes.caption,
-    marginTop: spacing.xs,
-  },
-  optionValue: {
+  tileCategory: {
     fontSize: typography.sizes.micro,
-    marginTop: 2,
-    textAlign: 'center',
+    letterSpacing: 0.8,
+  },
+  tileValue: {
+    fontSize: typography.sizes.body,
+    marginVertical: 2,
+  },
+  tileSub: {
+    fontSize: typography.sizes.micro,
   },
   bottomBar: {
     position: 'absolute',
@@ -524,9 +1040,135 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.md,
+    borderTopWidth: 1,
   },
   bottomBarLabel: {
     fontSize: typography.sizes.bodyLarge,
     letterSpacing: -0.3,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: radii.card,
+    borderTopRightRadius: radii.card,
+    padding: spacing.base,
+    paddingBottom: 40,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontSize: typography.sizes.h3,
+  },
+  soundOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+  },
+  soundOptionLeft: {
+    flex: 1,
+  },
+  soundOptionName: {
+    fontSize: typography.sizes.body,
+  },
+  soundOptionDesc: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  previewPlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+  },
+  challengeOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+  },
+  challengeIconCol: {
+    marginRight: spacing.md,
+  },
+  challengeIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  challengeInfoCol: {
+    flex: 1,
+  },
+  challengeTitle: {
+    fontSize: typography.sizes.body,
+  },
+  challengeDesc: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  targetAdjusterBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginTop: spacing.md,
+  },
+  targetLabel: {
+    fontSize: typography.sizes.bodySmall,
+  },
+  targetControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  targetValueText: {
+    fontSize: typography.sizes.bodyLarge,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  deviceAudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  deviceAudioIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deviceAudioTitle: {
+    fontSize: typography.sizes.body,
+  },
+  deviceAudioSubtitle: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  soundSectionLabel: {
+    fontSize: typography.sizes.caption,
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+  },
 });
+

@@ -2,6 +2,9 @@ import React from 'react';
 import { MethodId, Step } from './types';
 
 import { MathChallenge } from '../components/challenges/MathChallenge';
+import { FaceChallenge } from '../components/challenges/FaceChallenge';
+import { EnvironmentChallenge } from '../components/challenges/EnvironmentChallenge';
+import { PushupsChallenge } from '../components/challenges/PushupsChallenge';
 
 export interface DismissMethodProps {
   step: Step;
@@ -33,6 +36,28 @@ export const DISMISSAL_METHODS: Record<MethodId, DismissMethod> = {
     available: true,
     Component: MathChallenge,
   },
+  face: {
+    id: 'face',
+    title: 'AI Face Wake Check',
+    description: 'Deep learning vision verifies wide smile and eye alertness.',
+    defaultTarget: 1,
+    minTarget: 1,
+    maxTarget: 1,
+    unit: 'check',
+    available: true,
+    Component: FaceChallenge,
+  },
+  environment: {
+    id: 'environment',
+    title: 'Environment & Light Scan',
+    description: 'AI room scan ensures you get out of bed into morning light.',
+    defaultTarget: 1,
+    minTarget: 1,
+    maxTarget: 5,
+    unit: 'scans',
+    available: true,
+    Component: EnvironmentChallenge,
+  },
   pushups: {
     id: 'pushups',
     title: 'Pushups',
@@ -41,7 +66,8 @@ export const DISMISSAL_METHODS: Record<MethodId, DismissMethod> = {
     minTarget: 5,
     maxTarget: 50,
     unit: 'reps',
-    available: false, // Week 2
+    available: true,
+    Component: PushupsChallenge,
   },
   situps: {
     id: 'situps',
@@ -51,16 +77,6 @@ export const DISMISSAL_METHODS: Record<MethodId, DismissMethod> = {
     minTarget: 5,
     maxTarget: 50,
     unit: 'reps',
-    available: false, // Week 3
-  },
-  face: {
-    id: 'face',
-    title: 'Wake State Check',
-    description: 'Eye and expression check to ensure you are fully awake.',
-    defaultTarget: 1,
-    minTarget: 1,
-    maxTarget: 1,
-    unit: 'check',
-    available: false, // Week 4
+    available: false,
   },
 };

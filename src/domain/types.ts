@@ -1,6 +1,6 @@
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
-export type MethodId = 'math' | 'pushups' | 'situps' | 'face';
+export type MethodId = 'math' | 'pushups' | 'situps' | 'face' | 'environment';
 
 export type Step = {
   methodId: MethodId;

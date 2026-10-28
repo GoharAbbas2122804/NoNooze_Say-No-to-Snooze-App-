@@ -24,6 +24,11 @@ export function validateStep(step: Step): string | null {
         return 'Face/wake-state check target must be 1.';
       }
       break;
+    case 'environment':
+      if (step.target < 1 || step.target > 10) {
+        return 'Environment scan target must be between 1 and 10.';
+      }
+      break;
     default:
       return `Unknown challenge method: ${step.methodId}`;
   }

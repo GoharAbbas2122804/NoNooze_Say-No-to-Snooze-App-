@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   FlatList,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { typography, radii } from '../../theme/tokens';
 
@@ -15,12 +17,12 @@ export interface WheelArcResult {
   xOffset: number;
   scale: number;
   opacity: number;
+  rotateX: string;
 }
 
 /**
- * Pure math helper: computes horizontal arc offset, scale, and opacity
+ * Pure math helper: computes horizontal arc offset, scale, opacity, and 3D rotation
  * based on the item distance from the selected center row.
- * Numbers curve away from the center like an arc.
  */
 export function calculateWheelArcOffset(
   deltaIndex: number,
@@ -28,14 +30,14 @@ export function calculateWheelArcOffset(
   curvature = 4.5
 ): WheelArcResult {
   const absDelta = Math.abs(deltaIndex);
-  // Arc pushes outward or curves away from center
   const direction = isLeftColumn ? -1 : 1;
-  const rawOffset = direction * Math.min(28, (deltaIndex * deltaIndex) * curvature * 0.4);
+  const rawOffset = direction * Math.min(28, deltaIndex * deltaIndex * curvature * 0.4);
   const xOffset = rawOffset === 0 ? 0 : rawOffset;
   const scale = Math.max(0.65, 1 - absDelta * 0.14);
   const opacity = Math.max(0.18, 1 - absDelta * 0.28);
+  const rotateX = `${Math.max(-60, Math.min(60, deltaIndex * -22))}deg`;
 
-  return { xOffset, scale, opacity };
+  return { xOffset, scale, opacity, rotateX };
 }
 
 export interface WheelPickerColumnProps {
@@ -45,6 +47,9 @@ export interface WheelPickerColumnProps {
   isLeftColumn?: boolean;
   itemHeight?: number;
   visibleCount?: number;
+  testID?: string;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 const DEFAULT_ITEM_HEIGHT = 64;
@@ -57,44 +62,97 @@ export function WheelPickerColumn({
   isLeftColumn = true,
   itemHeight = DEFAULT_ITEM_HEIGHT,
   visibleCount = VISIBLE_ITEMS,
+  testID,
+  onInteractionStart,
+  onInteractionEnd,
 }: WheelPickerColumnProps) {
   const { colors } = useTheme();
   const listRef = useRef<FlatList>(null);
-  const isUserScrolling = useRef(false);
-  const lastIndex = useRef(selectedIndex);
+  const [localIndex, setLocalIndex] = useState(
+    Math.max(0, Math.min(selectedIndex, items.length - 1))
+  );
 
-  // Pad items on top and bottom so first/last can be centered
+  const isUserInteracting = useRef(false);
+  const lastHapticIndex = useRef(selectedIndex);
   const padCount = Math.floor(visibleCount / 2);
 
+  // Sync from parent when not dragging
+  useEffect(() => {
+    if (!isUserInteracting.current && selectedIndex >= 0 && selectedIndex < items.length) {
+      setLocalIndex(selectedIndex);
+      lastHapticIndex.current = selectedIndex;
+      listRef.current?.scrollToOffset({
+        offset: selectedIndex * itemHeight,
+        animated: false,
+      });
+    }
+  }, [selectedIndex, itemHeight, items.length]);
+
+  // Live scroll handler: updates visual 3D position and plays tactile clock tick
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = e.nativeEvent.contentOffset.y;
       const index = Math.round(offsetY / itemHeight);
-      const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
+      const clamped = Math.max(0, Math.min(index, items.length - 1));
 
-      if (clampedIndex !== lastIndex.current) {
-        lastIndex.current = clampedIndex;
+      if (clamped !== lastHapticIndex.current) {
+        lastHapticIndex.current = clamped;
+        setLocalIndex(clamped);
         Haptics.selectionAsync().catch(() => {});
-        onSelectIndex(clampedIndex);
       }
     },
-    [itemHeight, items.length, onSelectIndex]
+    [itemHeight, items.length]
   );
 
-  useEffect(() => {
-    if (!isUserScrolling.current && selectedIndex >= 0) {
+  // Commit selection to parent when scroll settles
+  const handleScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      isUserInteracting.current = false;
+      onInteractionEnd?.();
+
+      const offsetY = e.nativeEvent.contentOffset.y;
+      const index = Math.round(offsetY / itemHeight);
+      const clamped = Math.max(0, Math.min(index, items.length - 1));
+
+      setLocalIndex(clamped);
+      lastHapticIndex.current = clamped;
+      onSelectIndex(clamped);
+    },
+    [itemHeight, items.length, onInteractionEnd, onSelectIndex]
+  );
+
+  // Tap an item directly to jump to it
+  const handleItemPress = useCallback(
+    (index: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setLocalIndex(index);
+      lastHapticIndex.current = index;
+      onSelectIndex(index);
       listRef.current?.scrollToOffset({
-        offset: selectedIndex * itemHeight,
+        offset: index * itemHeight,
         animated: true,
       });
-      lastIndex.current = selectedIndex;
-    }
-  }, [selectedIndex, itemHeight]);
+    },
+    [itemHeight, onSelectIndex]
+  );
+
+  // Step up (nudge previous)
+  const handleNudgeUp = useCallback(() => {
+    const next = Math.max(0, localIndex - 1);
+    handleItemPress(next);
+  }, [localIndex, handleItemPress]);
+
+  // Step down (nudge next)
+  const handleNudgeDown = useCallback(() => {
+    const next = Math.min(items.length - 1, localIndex + 1);
+    handleItemPress(next);
+  }, [items.length, localIndex, handleItemPress]);
 
   const height = visibleCount * itemHeight;
 
   return (
     <View
+      testID={testID}
       style={[
         styles.columnContainer,
         {
@@ -104,7 +162,7 @@ export function WheelPickerColumn({
         },
       ]}
     >
-      {/* Center lens selection overlay */}
+      {/* Center lens selection overlay (behind text, pointerEvents="none") */}
       <View
         pointerEvents="none"
         style={[
@@ -112,53 +170,79 @@ export function WheelPickerColumn({
           {
             top: padCount * itemHeight,
             height: itemHeight,
-            borderColor: colors.borderSubtle,
+            borderColor: colors.accentYellow,
+            backgroundColor: 'rgba(242, 230, 58, 0.08)',
           },
         ]}
       />
 
+      {/* Top subtle nudge trigger */}
+      <Pressable
+        onPress={handleNudgeUp}
+        accessibilityRole="button"
+        accessibilityLabel="Previous value"
+        style={[styles.nudgeButton, styles.nudgeTop]}
+      >
+        <ChevronUp size={16} color={colors.muted} />
+      </Pressable>
+
+      {/* Scrollable Tumbler FlatList */}
       <FlatList
         ref={listRef}
         data={items}
         keyExtractor={(_, index) => String(index)}
         showsVerticalScrollIndicator={false}
-        snapToInterval={itemHeight}
+        nestedScrollEnabled={true}
         decelerationRate="fast"
-        initialScrollIndex={selectedIndex >= 0 ? selectedIndex : 0}
+        snapToInterval={itemHeight}
+        snapToAlignment="center"
+        initialScrollIndex={selectedIndex >= 0 && selectedIndex < items.length ? selectedIndex : 0}
         getItemLayout={(_, index) => ({
           length: itemHeight,
           offset: itemHeight * index,
           index,
         })}
         onScrollBeginDrag={() => {
-          isUserScrolling.current = true;
+          isUserInteracting.current = true;
+          onInteractionStart?.();
         }}
-        onScrollEndDrag={() => {
-          isUserScrolling.current = false;
+        onScrollEndDrag={(e) => {
+          // If velocity is 0 (released without momentum), settle immediately
+          if (Math.abs(e.nativeEvent.velocity?.y || 0) < 0.1) {
+            handleScrollEnd(e);
+          }
         }}
-        onMomentumScrollEnd={() => {
-          isUserScrolling.current = false;
+        onMomentumScrollBegin={() => {
+          isUserInteracting.current = true;
         }}
+        onMomentumScrollEnd={handleScrollEnd}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{
-          paddingVertical: padCount * itemHeight,
-        }}
+        ListHeaderComponent={<View style={{ height: padCount * itemHeight }} pointerEvents="none" />}
+        ListFooterComponent={<View style={{ height: padCount * itemHeight }} pointerEvents="none" />}
         renderItem={({ item, index }) => {
-          const delta = index - selectedIndex;
-          const { xOffset, scale, opacity } = calculateWheelArcOffset(
+          const delta = index - localIndex;
+          const { xOffset, scale, opacity, rotateX } = calculateWheelArcOffset(
             delta,
             isLeftColumn
           );
-          const isSelected = index === selectedIndex;
+          const isSelected = index === localIndex;
 
           return (
-            <View
+            <Pressable
+              onPress={() => handleItemPress(index)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item}, ${isSelected ? 'selected' : 'option'}`}
               style={[
                 styles.itemRow,
                 {
                   height: itemHeight,
-                  transform: [{ translateX: xOffset }, { scale }],
+                  transform: [
+                    { translateX: xOffset },
+                    { scale },
+                    { perspective: 800 },
+                    { rotateX },
+                  ],
                   opacity,
                 },
               ]}
@@ -176,10 +260,20 @@ export function WheelPickerColumn({
               >
                 {item}
               </Text>
-            </View>
+            </Pressable>
           );
         }}
       />
+
+      {/* Bottom subtle nudge trigger */}
+      <Pressable
+        onPress={handleNudgeDown}
+        accessibilityRole="button"
+        accessibilityLabel="Next value"
+        style={[styles.nudgeButton, styles.nudgeBottom]}
+      >
+        <ChevronDown size={16} color={colors.muted} />
+      </Pressable>
     </View>
   );
 }
@@ -195,18 +289,36 @@ const styles = StyleSheet.create({
   },
   selectionLens: {
     position: 'absolute',
-    left: 8,
-    right: 8,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    zIndex: 1,
+    left: 6,
+    right: 6,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    zIndex: 0,
+    borderRadius: 10,
   },
   itemRow: {
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   itemText: {
-    fontSize: 38,
+    fontSize: 42,
     letterSpacing: -1,
+  },
+  nudgeButton: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    backgroundColor: 'transparent',
+  },
+  nudgeTop: {
+    top: 2,
+  },
+  nudgeBottom: {
+    bottom: 2,
   },
 });

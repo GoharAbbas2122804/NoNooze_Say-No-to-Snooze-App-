@@ -27,32 +27,55 @@ describe('EditAlarmScreen', () => {
     expect(screen.getByTestId('save-alarm-button')).toBeTruthy();
   });
 
-  it('adjusts hours and minutes using stepper buttons', async () => {
+  it('renders visible repeat schedule options and presets', async () => {
     const user = userEvent.setup();
     await render(<EditAlarmScreen />);
 
-    // Initial is 07:00
-    expect(screen.getByTestId('hours-display').props.children).toBe('07');
+    expect(screen.getByTestId('repeat-summary-text')).toBeTruthy();
+    expect(screen.getByTestId('repeat-preset-once')).toBeTruthy();
+    expect(screen.getByTestId('repeat-preset-weekdays')).toBeTruthy();
+    expect(screen.getByTestId('repeat-preset-weekends')).toBeTruthy();
+    expect(screen.getByTestId('repeat-preset-everyday')).toBeTruthy();
 
-    await user.press(screen.getByTestId('hour-up'));
-    expect(screen.getByTestId('hours-display').props.children).toBe('08');
+    // Tap weekdays preset
+    await user.press(screen.getByTestId('repeat-preset-weekdays'));
+    expect(screen.getByText('Weekdays (Mon–Fri)')).toBeTruthy();
 
-    await user.press(screen.getByTestId('minute-up'));
-    expect(screen.getByTestId('minutes-display').props.children).toBe('05');
+    // Toggle Saturday
+    await user.press(screen.getByTestId('repeat-day-6'));
+    expect(screen.getByTestId('repeat-summary-text')).toBeTruthy();
   });
 
-  it('saves new alarm to store and navigates back', async () => {
+  it('allows selecting alarm sound from modal', async () => {
+    const user = userEvent.setup();
+    await render(<EditAlarmScreen />);
+
+    expect(screen.getByTestId('sound-select-btn')).toBeTruthy();
+
+    // Open sound modal
+    await user.press(screen.getByTestId('sound-select-btn'));
+    expect(screen.getByText('Choose Alarm Sound')).toBeTruthy();
+    expect(screen.getByTestId('sound-option-Radiant Radar')).toBeTruthy();
+
+    // Pick Radiant Radar
+    await user.press(screen.getByTestId('sound-option-Radiant Radar'));
+    expect(screen.getByTestId('selected-sound-name')).toBeTruthy();
+  });
+
+  it('saves new alarm to store with label, repeat, and sound', async () => {
     const user = userEvent.setup();
     const { router } = require('expo-router');
 
     await render(<EditAlarmScreen />);
 
     await user.type(screen.getByTestId('alarm-label-input'), 'Morning Alarm');
+    await user.press(screen.getByTestId('repeat-preset-everyday'));
     await user.press(screen.getByTestId('save-alarm-button'));
 
     const { alarms } = useAlarmStore.getState();
     expect(alarms).toHaveLength(1);
     expect(alarms[0].label).toBe('Morning Alarm');
+    expect(alarms[0].days).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(router.back).toHaveBeenCalled();
   });
 

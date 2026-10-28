@@ -4,9 +4,11 @@ import {
   Text,
   FlatList,
   StyleSheet,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Zap } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,7 +26,7 @@ import { PillBar } from '../components/alarm/PillBar';
 import { DayOfWeek } from '../domain/types';
 import { getNextTriggerDate } from '../domain/next-trigger';
 import { GSAPEasings } from '../motion/ease';
-import { typography, spacing } from '../theme/tokens';
+import { typography, spacing, radii } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
 
 export default function HomeScreen() {
@@ -212,6 +214,38 @@ export default function HomeScreen() {
                 activeAlarmDays={activeAlarmDays}
               />
 
+              {/* AI Challenges Hub Quick Link */}
+              <Pressable
+                testID="ai-challenges-hub-btn"
+                accessibilityRole="button"
+                accessibilityLabel="Open AI Challenges Hub"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  router.push('/challenges');
+                }}
+                style={[
+                  styles.challengeBanner,
+                  { backgroundColor: colors.surface, borderColor: colors.borderSubtle },
+                ]}
+              >
+                <View style={[styles.challengeIconDisc, { backgroundColor: colors.accentYellow }]}>
+                  <Zap size={16} color="#0D0D0D" strokeWidth={2.4} />
+                </View>
+                <View style={styles.challengeBannerTextCol}>
+                  <Text style={[styles.challengeBannerTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                    AI Wake Challenges
+                  </Text>
+                  <Text style={[styles.challengeBannerSub, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                    Face AI · Room Light · Math Puzzles
+                  </Text>
+                </View>
+                <View style={[styles.challengeTryPill, { backgroundColor: colors.surfaceAlt }]}>
+                  <Text style={[styles.challengeTryText, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                    Practice
+                  </Text>
+                </View>
+              </Pressable>
+
               {/* Section Header */}
               <View style={styles.sectionHeaderRow}>
                 <Text
@@ -298,5 +332,39 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: typography.sizes.bodySmall,
+  },
+  challengeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    marginVertical: spacing.sm,
+  },
+  challengeIconDisc: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  challengeBannerTextCol: {
+    flex: 1,
+  },
+  challengeBannerTitle: {
+    fontSize: typography.sizes.bodySmall,
+  },
+  challengeBannerSub: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  challengeTryPill: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  challengeTryText: {
+    fontSize: typography.sizes.caption,
   },
 });

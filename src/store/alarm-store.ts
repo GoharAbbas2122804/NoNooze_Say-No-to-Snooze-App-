@@ -11,9 +11,20 @@ export interface AlarmStoreState {
   activeAlarmId: string | null;
 
   timeFormat: '12h' | '24h';
+  alarmVolume: number;
+  defaultSound: string;
+  gentleWake: boolean;
+  vibrate: boolean;
+  customSounds: { id: string; name: string; description: string; uri?: string; category: string }[];
 
   // Actions
   setTimeFormat: (format: '12h' | '24h') => void;
+  setAlarmVolume: (volume: number) => void;
+  setDefaultSound: (sound: string) => void;
+  setGentleWake: (enabled: boolean) => void;
+  setVibrate: (enabled: boolean) => void;
+  addCustomSound: (sound: { id: string; name: string; description: string; uri?: string; category: string }) => void;
+  removeCustomSound: (id: string) => void;
   addAlarm: (
     alarmData: Omit<Alarm, 'id'>
   ) => { success: boolean; id?: string; errors?: string[] };
@@ -34,12 +45,34 @@ export const useAlarmStore = create<AlarmStoreState>()(
       alarms: [],
       activeAlarmId: null,
       timeFormat: '12h',
+      alarmVolume: 80,
+      defaultSound: 'Melodian',
+      gentleWake: true,
+      vibrate: true,
+      customSounds: [],
 
       setTimeFormat: (format) => set({ timeFormat: format }),
+      setAlarmVolume: (volume) =>
+        set({ alarmVolume: Math.max(0, Math.min(100, Math.round(volume))) }),
+      setDefaultSound: (sound) => set({ defaultSound: sound }),
+      setGentleWake: (gentleWake) => set({ gentleWake }),
+      setVibrate: (vibrate) => set({ vibrate }),
+      addCustomSound: (sound) =>
+        set((state) => ({
+          customSounds: [
+            ...state.customSounds.filter((s) => s.id !== sound.id),
+            sound,
+          ],
+        })),
+      removeCustomSound: (id) =>
+        set((state) => ({
+          customSounds: state.customSounds.filter((s) => s.id !== id),
+        })),
 
       addAlarm: (alarmData) => {
         const tempAlarm: Alarm = {
           ...alarmData,
+          sound: alarmData.sound || get().defaultSound || 'Melodian',
           id: `alarm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         };
 
@@ -126,7 +159,14 @@ export const useAlarmStore = create<AlarmStoreState>()(
     {
       name: 'nonooze_alarm_storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ alarms: state.alarms, timeFormat: state.timeFormat }),
+      partialize: (state) => ({
+        alarms: state.alarms,
+        timeFormat: state.timeFormat,
+        alarmVolume: state.alarmVolume,
+        defaultSound: state.defaultSound,
+        gentleWake: state.gentleWake,
+        vibrate: state.vibrate,
+      }),
     }
   )
 );

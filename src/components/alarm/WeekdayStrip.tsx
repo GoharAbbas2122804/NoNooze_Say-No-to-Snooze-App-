@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../theme/ThemeProvider';
 import { DayOfWeek } from '../../domain/types';
 import { typography, spacing } from '../../theme/tokens';
+import { GSAPEasings } from '../../motion/ease';
 
 export interface WeekdayStripProps {
   selectedDay: DayOfWeek;
@@ -32,6 +35,7 @@ const WEEKDAYS: DayItem[] = [
 ];
 
 const CIRCLE_SIZE = 42;
+const HORIZONTAL_PADDING = spacing.sm; // 8
 
 export function WeekdayStrip({
   selectedDay,
@@ -41,6 +45,9 @@ export function WeekdayStrip({
   const { colors } = useTheme();
   const [containerWidth, setContainerWidth] = React.useState(0);
   const slideX = useSharedValue(0);
+  const scaleX = useSharedValue(1);
+  const scaleY = useSharedValue(1);
+  const prevIndex = useRef(-1);
 
   const selectedIndex = React.useMemo(() => {
     const idx = WEEKDAYS.findIndex((w) => w.day === selectedDay);
@@ -54,16 +61,46 @@ export function WeekdayStrip({
 
   React.useEffect(() => {
     if (containerWidth > 0) {
-      const step = (containerWidth - CIRCLE_SIZE) / (WEEKDAYS.length - 1);
-      slideX.value = withSpring(selectedIndex * step, {
-        damping: 16,
-        stiffness: 160,
+      const innerWidth = containerWidth - HORIZONTAL_PADDING * 2;
+      const cellWidth = innerWidth / WEEKDAYS.length;
+      // Exact center offset for cell index
+      const targetX =
+        HORIZONTAL_PADDING + selectedIndex * cellWidth + (cellWidth - CIRCLE_SIZE) / 2;
+
+      if (prevIndex.current !== -1 && prevIndex.current !== selectedIndex) {
+        const distance = Math.abs(selectedIndex - prevIndex.current);
+        // Organic GSAP-style squash & stretch on jump
+        scaleX.value = withSequence(
+          withTiming(1 + Math.min(0.22, distance * 0.06), {
+            duration: 130,
+            easing: GSAPEasings.power2.out,
+          }),
+          withSpring(1, { damping: 14, stiffness: 220 })
+        );
+        scaleY.value = withSequence(
+          withTiming(0.9, { duration: 130, easing: GSAPEasings.power2.out }),
+          withSpring(1, { damping: 14, stiffness: 220 })
+        );
+      } else {
+        slideX.value = targetX;
+      }
+
+      slideX.value = withSpring(targetX, {
+        damping: 18,
+        stiffness: 180,
+        mass: 0.8,
       });
+
+      prevIndex.current = selectedIndex;
     }
-  }, [selectedIndex, containerWidth, slideX]);
+  }, [selectedIndex, containerWidth, slideX, scaleX, scaleY]);
 
   const animatedIndicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: slideX.value }],
+    transform: [
+      { translateX: slideX.value },
+      { scaleX: scaleX.value },
+      { scaleY: scaleY.value },
+    ],
   }));
 
   const handleSelect = (day: DayOfWeek) => {
@@ -113,7 +150,6 @@ export function WeekdayStrip({
                     fontFamily: isSelected
                       ? typography.fonts.bold
                       : typography.fonts.medium,
-                    transform: isSelected ? [{ rotate: '-6deg' }] : [],
                   },
                 ]}
               >
@@ -146,12 +182,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: HORIZONTAL_PADDING,
     position: 'relative',
+    overflow: 'hidden',
   },
   activeCircle: {
     position: 'absolute',
-    left: spacing.sm,
+    left: 0,
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,

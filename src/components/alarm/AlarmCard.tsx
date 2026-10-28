@@ -51,8 +51,22 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({
     return alarm.days.map((d) => DAY_NAMES[d]).join(', ');
   };
 
-  const gamesCount = alarm.steps ? alarm.steps.length : 1;
-  const gamesLabel = `${gamesCount} ${gamesCount === 1 ? 'Game' : 'Games'}`;
+  const firstStep = alarm.steps?.[0];
+  const gamesLabel = React.useMemo(() => {
+    if (!firstStep) return '1 Game';
+    switch (firstStep.methodId) {
+      case 'face':
+        return '⚡ Face AI';
+      case 'environment':
+        return '⚡ Light Scan';
+      case 'math':
+        return `⚡ Math (${firstStep.target}x)`;
+      case 'pushups':
+        return `⚡ Pushups (${firstStep.target}x)`;
+      default:
+        return `${alarm.steps?.length || 1} Game`;
+    }
+  }, [firstStep, alarm.steps]);
 
   const handlePressIn = () => {
     scale.value = withSpring(0.98, { damping: 15, stiffness: 220 });

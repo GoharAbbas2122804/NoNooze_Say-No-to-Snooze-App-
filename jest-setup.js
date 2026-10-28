@@ -24,12 +24,18 @@ jest.mock('react-native-reanimated', () => {
     withSpring: (toValue) => toValue,
     withRepeat: (anim) => anim,
     Easing: {
+      in: (fn) => fn,
+      out: (fn) => fn,
       inOut: (fn) => fn,
       sin: (t) => t,
-      elastic: () => (t) => t,
+      quad: (t) => t,
       cubic: (t) => t,
       linear: (t) => t,
-      out: (fn) => fn,
+      poly: () => (t) => t,
+      elastic: () => (t) => t,
+      back: () => (t) => t,
+      exp: (t) => t,
+      bezier: () => (t) => t,
     },
   };
 });
@@ -107,3 +113,41 @@ jest.mock('@shopify/react-native-skia', () => {
     },
   };
 });
+
+// Mock expo-document-picker
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn().mockResolvedValue({
+    canceled: false,
+    assets: [
+      {
+        name: 'custom_alarm_beat.mp3',
+        uri: 'file:///mock/storage/custom_alarm_beat.mp3',
+        size: 24500,
+        mimeType: 'audio/mpeg',
+      },
+    ],
+  }),
+}));
+
+// Mock expo-audio
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    replace: jest.fn(),
+    setVolume: jest.fn(),
+    remove: jest.fn(),
+  })),
+  useAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    replace: jest.fn(),
+    setVolume: jest.fn(),
+  })),
+  useAudioPlayerStatus: jest.fn(() => ({
+    playing: false,
+    currentTime: 0,
+    duration: 30,
+  })),
+  setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+}));
