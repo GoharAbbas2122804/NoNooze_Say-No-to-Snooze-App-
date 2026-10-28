@@ -1,16 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Modal,
+  ScrollView,
+} from 'react-native';
 import { Step, MethodId } from '../../domain/types';
 import { DISMISSAL_METHODS } from '../../domain/dismissal-registry';
-import { colors, spacing, radii, typography, shadows } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeProvider';
+import { TwoToneTitle } from '../ui/TwoToneTitle';
+import { RoundButton } from '../ui/RoundButton';
+import { notify } from '../../ui/notify';
+import { typography, spacing, radii } from '../../theme/tokens';
+import { Plus, Minus, X, Lock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 interface StepBuilderProps {
   steps: Step[];
   onChange: (steps: Step[]) => void;
+  alarmTime?: string;
 }
 
-export const StepBuilder: React.FC<StepBuilderProps> = ({ steps, onChange }) => {
+export const StepBuilder: React.FC<StepBuilderProps> = ({
+  steps,
+  onChange,
+  alarmTime = '10:30',
+}) => {
+  const { colors } = useTheme();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const handleUpdateTarget = (index: number, delta: number) => {
@@ -30,8 +48,18 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({ steps, onChange }) => 
 
   const handleRemoveStep = (index: number) => {
     if (steps.length <= 1) return;
+    const removedStep = steps[index];
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onChange(steps.filter((_, i) => i !== index));
+
+    notify.action('Challenge step removed', {
+      label: 'Undo',
+      onPress: () => {
+        const restored = [...steps];
+        restored.splice(index, 0, removedStep);
+        onChange(restored);
+      },
+    });
   };
 
   const handleMoveStep = (index: number, direction: 'up' | 'down') => {
@@ -56,156 +84,229 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({ steps, onChange }) => 
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Dismissal Steps</Text>
-        <Text style={styles.stepCount}>
-          {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-        </Text>
+      {/* Two-Tone Title: "Choose" black / "the Game" grey */}
+      <TwoToneTitle primary="Choose" secondary="the Game" />
+
+      {/* Round Dial with fine tick marks showing alarm time (Inspiration 03) */}
+      <View style={styles.dialContainer}>
+        <View style={[styles.dialCircle, { borderColor: colors.borderSubtle, backgroundColor: colors.surface }]}>
+          {/* Circular fine tick marks around the ring */}
+          {Array.from({ length: 24 }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.dialTick,
+                {
+                  transform: [
+                    { rotate: `${i * 15}deg` },
+                    { translateY: -64 },
+                  ],
+                  backgroundColor: i % 6 === 0 ? colors.ink : colors.borderSubtle,
+                },
+              ]}
+            />
+          ))}
+          {/* Centered Trigger Time */}
+          <Text
+            style={[
+              styles.dialTimeText,
+              { color: colors.ink, fontFamily: typography.fonts.bold },
+            ]}
+          >
+            {alarmTime}
+          </Text>
+        </View>
       </View>
 
-      {/* Step Cards List */}
-      <View style={styles.stepList}>
+      {/* Horizontal Carousel of Challenge Cards */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carouselContainer}
+      >
         {steps.map((step, index) => {
           const def = DISMISSAL_METHODS[step.methodId];
           return (
-            <View key={`step-${index}`} style={styles.stepCard} testID={`step-card-${index}`}>
-              <View style={styles.stepCardHeader}>
-                <View style={styles.stepIndexPill}>
-                  <Text style={styles.stepIndexText}>{index + 1}</Text>
-                </View>
-                <View style={styles.stepInfo}>
-                  <Text style={styles.stepTitle}>{def.title}</Text>
-                  <Text style={styles.stepDesc}>
-                    {step.target} {def.unit}
+            <View
+              key={`step-${index}`}
+              testID={`step-card-${index}`}
+              style={[styles.carouselCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
+            >
+              {/* Header inside Card */}
+              <View style={styles.cardHeader}>
+                <View style={[styles.indexBadge, { backgroundColor: colors.accentYellow }]}>
+                  <Text style={[styles.indexText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
+                    #{index + 1}
                   </Text>
                 </View>
 
-                {/* Move buttons */}
-                <View style={styles.moveButtons}>
-                  {index > 0 && (
-                    <TouchableOpacity
+                {/* Move & Remove Controls */}
+                <View style={styles.controlsRow}>
+                  {index > 0 ? (
+                    <Pressable
                       testID={`move-up-${index}`}
                       onPress={() => handleMoveStep(index, 'up')}
-                      style={styles.iconButton}
+                      style={styles.microButton}
                     >
-                      <Text style={styles.iconText}>↑</Text>
-                    </TouchableOpacity>
-                  )}
-                  {index < steps.length - 1 && (
-                    <TouchableOpacity
+                      <ChevronUp size={16} color={colors.ink} />
+                    </Pressable>
+                  ) : null}
+                  {index < steps.length - 1 ? (
+                    <Pressable
                       testID={`move-down-${index}`}
                       onPress={() => handleMoveStep(index, 'down')}
-                      style={styles.iconButton}
+                      style={styles.microButton}
                     >
-                      <Text style={styles.iconText}>↓</Text>
-                    </TouchableOpacity>
-                  )}
+                      <ChevronDown size={16} color={colors.ink} />
+                    </Pressable>
+                  ) : null}
+                  {steps.length > 1 ? (
+                    <Pressable
+                      testID={`remove-step-${index}`}
+                      onPress={() => handleRemoveStep(index)}
+                      style={[styles.microButton, { backgroundColor: 'rgba(229, 55, 43, 0.12)' }]}
+                    >
+                      <X size={14} color={colors.error} />
+                    </Pressable>
+                  ) : null}
                 </View>
-
-                {/* Delete button (if more than 1 step) */}
-                {steps.length > 1 && (
-                  <TouchableOpacity
-                    testID={`remove-step-${index}`}
-                    onPress={() => handleRemoveStep(index)}
-                    style={styles.deleteButton}
-                  >
-                    <Text style={styles.deleteText}>✕</Text>
-                  </TouchableOpacity>
-                )}
               </View>
 
-              {/* Stepper Controls */}
-              <View style={styles.stepperRow}>
-                <Text style={styles.stepperLabel}>Target Reps / Problems:</Text>
-                <View style={styles.stepper}>
-                  <TouchableOpacity
+              {/* Title & Description */}
+              <Text style={[styles.stepTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                {def.title}
+              </Text>
+              <Text style={[styles.stepDesc, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                {def.description}
+              </Text>
+
+              {/* 10x10 Dot Matrix Visual (Inspiration 03) */}
+              <View style={styles.dotMatrixPreview}>
+                {Array.from({ length: 40 }).map((_, dotIdx) => (
+                  <View
+                    key={dotIdx}
+                    style={[
+                      styles.previewDot,
+                      {
+                        backgroundColor:
+                          dotIdx < step.target * 8
+                            ? colors.accentYellow
+                            : colors.dotInactive,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              {/* Target Counter */}
+              <View style={styles.targetRow}>
+                <Text style={[styles.targetLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                  Target {def.unit}:
+                </Text>
+                <View style={styles.counterGroup}>
+                  <RoundButton
                     testID={`step-dec-${index}`}
-                    style={[styles.stepBtn, step.target <= def.minTarget && styles.stepBtnDisabled]}
+                    size={36}
+                    variant="surfaceAlt"
                     onPress={() => handleUpdateTarget(index, -1)}
-                    disabled={step.target <= def.minTarget}
                   >
-                    <Text style={styles.stepBtnText}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.targetNumber} testID={`target-value-${index}`}>
+                    <Minus size={14} color={colors.ink} />
+                  </RoundButton>
+                  <Text
+                    testID={`target-value-${index}`}
+                    style={[styles.targetValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}
+                  >
                     {step.target}
                   </Text>
-                  <TouchableOpacity
+                  <RoundButton
                     testID={`step-inc-${index}`}
-                    style={[styles.stepBtn, step.target >= def.maxTarget && styles.stepBtnDisabled]}
+                    size={36}
+                    variant="surfaceAlt"
                     onPress={() => handleUpdateTarget(index, 1)}
-                    disabled={step.target >= def.maxTarget}
                   >
-                    <Text style={styles.stepBtnText}>+</Text>
-                  </TouchableOpacity>
+                    <Plus size={14} color={colors.ink} />
+                  </RoundButton>
                 </View>
               </View>
             </View>
           );
         })}
-      </View>
 
-      {/* Add Step Button */}
-      <TouchableOpacity
-        testID="add-step-button"
-        style={styles.addStepButton}
-        onPress={() => setPickerVisible(true)}
-        activeOpacity={0.8}
+        {/* Add Challenge Step Card */}
+        <Pressable
+          testID="add-step-button"
+          onPress={() => setPickerVisible(true)}
+          style={[styles.carouselCard, styles.addCard, { borderColor: colors.borderSubtle }]}
+        >
+          <View style={[styles.addIconCircle, { backgroundColor: colors.accentYellow }]}>
+            <Plus size={28} color="#0D0D0D" strokeWidth={2.5} />
+          </View>
+          <Text style={[styles.addCardTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+            Add Game
+          </Text>
+          <Text style={[styles.addCardSub, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+            Choose challenge
+          </Text>
+        </Pressable>
+      </ScrollView>
+
+      {/* Challenge Picker Modal */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
       >
-        <Text style={styles.addStepText}>+ Add Dismissal Step</Text>
-      </TouchableOpacity>
-
-      {/* Method Picker Modal */}
-      <Modal visible={pickerVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Choose Challenge</Text>
-            <Text style={styles.modalSubtitle}>
-              Select a challenge to add to your wake-up sequence
-            </Text>
-
-            <View style={styles.methodGrid}>
-              {(Object.keys(DISMISSAL_METHODS) as MethodId[]).map((methodId) => {
-                const def = DISMISSAL_METHODS[methodId];
-                return (
-                  <TouchableOpacity
-                    key={methodId}
-                    testID={`method-option-${methodId}`}
-                    style={[
-                      styles.methodCard,
-                      !def.available && styles.methodCardDisabled,
-                    ]}
-                    onPress={() => handleAddMethod(methodId)}
-                    disabled={!def.available}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.methodHeader}>
-                      <Text
-                        style={[
-                          styles.methodName,
-                          !def.available && styles.methodNameDisabled,
-                        ]}
-                      >
-                        {def.title}
-                      </Text>
-                      {!def.available && (
-                        <View style={styles.comingSoonBadge}>
-                          <Text style={styles.comingSoonText}>Coming Soon</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.methodDescription}>{def.description}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Choose Challenge
+              </Text>
+              <RoundButton
+                testID="close-picker-button"
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setPickerVisible(false)}
+              >
+                <X size={16} color={colors.ink} />
+              </RoundButton>
             </View>
 
-            <TouchableOpacity
-              testID="close-picker-button"
-              style={styles.closeModalButton}
-              onPress={() => setPickerVisible(false)}
-            >
-              <Text style={styles.closeModalText}>Cancel</Text>
-            </TouchableOpacity>
+            <ScrollView style={styles.modalScroll}>
+              {Object.values(DISMISSAL_METHODS).map((method) => (
+                <Pressable
+                  key={method.id}
+                  testID={`method-option-${method.id}`}
+                  onPress={() => handleAddMethod(method.id)}
+                  disabled={!method.available}
+                  style={[
+                    styles.methodOption,
+                    {
+                      backgroundColor: colors.surfaceAlt,
+                      opacity: method.available ? 1 : 0.6,
+                    },
+                  ]}
+                >
+                  <View style={styles.methodInfo}>
+                    <Text style={[styles.methodTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                      {method.title}
+                    </Text>
+                    <Text style={[styles.methodDesc, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                      {method.description}
+                    </Text>
+                  </View>
+                  {!method.available ? (
+                    <View style={[styles.comingSoonBadge, { backgroundColor: colors.surface }]}>
+                      <Lock size={12} color={colors.muted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.comingSoonText, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+                        Coming Soon
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -215,231 +316,178 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({ steps, onChange }) => 
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    gap: spacing.base,
+    marginVertical: spacing.md,
   },
-  headerRow: {
+  dialContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.base,
+  },
+  dialCircle: {
+    width: 144,
+    height: 144,
+    borderRadius: 72,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  dialTick: {
+    position: 'absolute',
+    top: 70,
+    width: 1.5,
+    height: 8,
+    borderRadius: 1,
+  },
+  dialTimeText: {
+    fontSize: typography.sizes.h2,
+    letterSpacing: -0.5,
+  },
+  carouselContainer: {
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  carouselCard: {
+    width: 270,
+    borderRadius: radii.card,
+    padding: spacing.base,
+    borderWidth: 1,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.sm,
   },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodyLarge,
-    fontWeight: typography.weights.bold,
-  },
-  stepCount: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  stepList: {
-    gap: spacing.md,
-  },
-  stepCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-    gap: spacing.md,
-  },
-  stepCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  stepIndexPill: {
-    width: 28,
-    height: 28,
+  indexBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
     borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  stepIndexText: {
-    color: colors.textInverse,
-    fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.bold,
+  indexText: {
+    fontSize: typography.sizes.micro,
   },
-  stepInfo: {
-    flex: 1,
-  },
-  stepTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-  },
-  stepDesc: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  moveButtons: {
+  controlsRow: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
-  iconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
+  microButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(128, 128, 128, 0.15)',
   },
-  iconText: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.body,
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteText: {
-    color: colors.error,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.bold,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    paddingTop: spacing.sm,
-  },
-  stepperLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  stepBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepBtnDisabled: {
-    opacity: 0.3,
-  },
-  stepBtnText: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h3,
-    fontWeight: typography.weights.bold,
-  },
-  targetNumber: {
-    color: colors.primary,
+  stepTitle: {
     fontSize: typography.sizes.bodyLarge,
-    fontWeight: typography.weights.bold,
-    minWidth: 32,
-    textAlign: 'center',
+    marginBottom: 2,
   },
-  addStepButton: {
-    height: 48,
-    borderRadius: radii.xl,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.primaryGlow,
-  },
-  addStepText: {
-    color: colors.primary,
-    fontSize: typography.sizes.body,
-    fontWeight: typography.weights.semibold,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radii.xxl,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-    gap: spacing.base,
-  },
-  modalTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.h2,
-    fontWeight: typography.weights.bold,
-  },
-  modalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
-  },
-  methodGrid: {
-    gap: spacing.md,
-  },
-  methodCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.xl,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  methodCardDisabled: {
-    opacity: 0.45,
-  },
-  methodHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  methodName: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.bodyLarge,
-    fontWeight: typography.weights.semibold,
-  },
-  methodNameDisabled: {
-    color: colors.textMuted,
-  },
-  comingSoonBadge: {
-    backgroundColor: colors.surfaceActive,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-  },
-  comingSoonText: {
-    color: colors.accent,
+  stepDesc: {
     fontSize: typography.sizes.caption,
-    fontWeight: typography.weights.semibold,
   },
-  methodDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.bodySmall,
+  dotMatrixPreview: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: spacing.md,
+    height: 60,
+    alignContent: 'center',
   },
-  closeModalButton: {
-    height: 48,
-    borderRadius: radii.xl,
-    backgroundColor: colors.surfaceElevated,
-    justifyContent: 'center',
+  previewDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  targetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: spacing.sm,
   },
-  closeModalText: {
-    color: colors.textSecondary,
+  targetLabel: {
+    fontSize: typography.sizes.bodySmall,
+  },
+  counterGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  targetValue: {
+    fontSize: typography.sizes.bodyLarge,
+    minWidth: 20,
+    textAlign: 'center',
+  },
+  addCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderStyle: 'dashed',
+  },
+  addIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  addCardTitle: {
+    fontSize: typography.sizes.bodyLarge,
+  },
+  addCardSub: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    padding: spacing.base,
+  },
+  modalCard: {
+    borderRadius: radii.card,
+    padding: spacing.base,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.base,
+  },
+  modalTitle: {
+    fontSize: typography.sizes.h3,
+  },
+  modalScroll: {
+    maxHeight: 320,
+  },
+  methodOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.base,
+    borderRadius: radii.lg,
+    marginBottom: spacing.sm,
+  },
+  methodInfo: {
+    flex: 1,
+  },
+  methodTitle: {
     fontSize: typography.sizes.body,
-    fontWeight: typography.weights.medium,
+  },
+  methodDesc: {
+    fontSize: typography.sizes.caption,
+    marginTop: 2,
+  },
+  comingSoonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    marginLeft: spacing.sm,
+  },
+  comingSoonText: {
+    fontSize: typography.sizes.micro,
   },
 });
