@@ -35,8 +35,6 @@ export class DefaultWakeCheckEngine implements WakeCheckEngine {
   private calibrationResolver?: (calib: Calibration) => void;
   private savedCalibration?: Calibration;
 
-  constructor() {}
-
   public async start(cfg: WakeCheckConfig): Promise<void> {
     this.config = cfg;
     this.stateMachine = createWakeStateMachine(this.config, {

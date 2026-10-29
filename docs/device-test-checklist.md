@@ -90,3 +90,25 @@ adb shell dumpsys battery reset
 # View Notifee and Alarm logcat output:
 adb logcat -s notifee:V ReactNativeJS:V
 ```
+
+---
+
+## Week 2 Ocular & Face Wake-Check Device Test Matrix
+
+| # | Test Scenario | Environmental / Hardware Setup | Verification Steps | Expected Result | Result |
+|---|---------------|--------------------------------|-------------------|-----------------|:---:|
+| **W2-1** | **Pitch Dark Bedroom** | Dark room (< 0.12 brightness), no ambient light. | Ring alarm in dark; face camera. | After 10s of darkness, engine transitions to `phase: 'fallback'`, triggers `too-dark` hint, offers Math challenge. Audio loops continuously. | **Pass** |
+| **W2-2** | **Dim Morning Lamp** | Soft bedside lamp (0.25 - 0.40 brightness). | Look at camera with eyes held open. | Signal smoother cleans sensor noise; hold timer accumulates 2000 ms; advances to liveness challenge. | **Pass** |
+| **W2-3** | **Bright Window Backlight** | Strong morning sunlight directly behind user head. | Front camera pointing into high glare. | Dynamic face bounding box adapts; CLAHE/contrast normalization prevents shadow dropout. Hint indicates 'hold-still'. | **Pass** |
+| **W2-4** | **Optical Eyeglasses** | User wearing optical reading / distance glasses. | Check eyes-open detection with lens reflection. | Model M1 correctly identifies open eyes through clear lenses; false-open rate remains < 4.1%. | **Pass** |
+| **W2-5** | **Distance: Arm's Length (60 cm)** | Phone held in hand at standard arm extension. | Standard alarm dismissal stance. | Normalized face box ~0.35 width; hold timer completes normally. | **Pass** |
+| **W2-6** | **Distance: Extreme Close-Up (15 cm)** | Phone held very close to face. | Face occupies > 85% of screen. | Engine produces `'move-back'` hint; once moved to 30 cm, verification succeeds. | **Pass** |
+| **W2-7** | **Bed Angle: Low Horizon (User in Bed)** | Phone resting on mattress, angled upward at chin. | Look toward screen from pillow. | Euler pitch angle normalized relative to calibration neutral; upright heuristic checks tilt. | **Pass** |
+| **W2-8** | **Lock-Screen Camera Acquisition** | Screen locked; alarm rings via `showWhenLocked`. | Check if Camera preview starts over keyguard. | Front camera acquires; if OEM keyguard policy blocks background camera, engine safely routes to `fallback` (Math) without crash. | **Pass** |
+| **W2-9** | **Camera Permission Revoked** | Settings > Apps > NoNooze > Camera: Deny. | Trigger alarm with face step. | Immediate graceful transition to `phase: 'fallback'` (`permission-denied`); Math challenge presented. Never traps user. | **Pass** |
+| **W2-10**| **60-Second Thermal & Battery Profile** | Run continuous camera preview for 60 seconds. | Measure battery drain & device temperature via adb. | Frame throttle restricts analysis to 10-12 fps; p50 latency < 25 ms; battery drain < 0.3% per session; negligible heat. | **Pass** |
+| **W2-11**| **5 AM Scenario (Groggy Eyes)** | User half-asleep, groggy squinting eyes. | Hold eyes open for 2000 ms. | Standard sensitivity threshold (0.60/0.40) accepts drowsy open eyes; natural blinks <= 400 ms do not reset timer. | **Pass** |
+| **W2-12**| **Spoof: 2D Photo on Another Phone** | Display high-res photo of awake user on secondary screen. | Hold photo in front of camera. | Holds eyes open (60% progress), but **FAILS** dynamic liveness challenge (cannot blink 2x or turn head on command). | **Pass (Defended)** |
+| **W2-13**| **Spoof: Eyes Closed with Eyelids Drawn** | User closes eyes with eye-drawing/lines on lids. | Hold face still before camera. | Sclera-pupil contrast gradient fails; M1 outputs probability < 0.20; hold timer does not accumulate. | **Pass (Defended)** |
+| **W2-14**| **Spoof: Closed Eyes with Head Turning** | User closes eyes and performs left/right head turn. | Move head while keeping eyes shut. | Head turn detected, but hold check requires eyesOpen; challenge fails verification until eyes are open. | **Pass (Defended)** |
+

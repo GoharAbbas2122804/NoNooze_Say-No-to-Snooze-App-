@@ -52,13 +52,7 @@
       "./plugins/withLockScreen.js",
       "expo-asset",
       "expo-image",
-      "expo-web-browser",
-      [
-        "react-native-vision-camera",
-        {
-          "cameraPermissionText": "NoNooze needs camera access for wakefulness check."
-        }
-      ]
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

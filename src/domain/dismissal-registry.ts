@@ -44,7 +44,7 @@ export const DISMISSAL_METHODS: Record<MethodId, DismissMethod> = {
     minTarget: 1,
     maxTarget: 1,
     unit: 'check',
-    available: false,
+    available: true,
     Component: FaceChallenge,
   },
   environment: {

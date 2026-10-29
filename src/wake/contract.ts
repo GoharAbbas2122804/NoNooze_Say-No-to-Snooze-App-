@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { View, StyleProp, ViewStyle } from 'react-native';
 
 export type WakePhase = 'idle'|'permission'|'setup'|'calibrating'|'searching'|'verifying'|'challenge'|'success'|'failed'|'fallback';
@@ -35,20 +35,11 @@ export interface WakeCheckEngine {
   calibrate():Promise<Calibration>; getState():WakeCheckState;
 }
 
-export function useWakeCheck(engine: WakeCheckEngine) {
-  const [state, setState] = useState<WakeCheckState>(() => engine.getState());
-
-  useEffect(() => {
-    setState(engine.getState());
-    const unsubscribe = engine.subscribe((next) => {
-      setState(next);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [engine]);
-
-  return state;
+export function useWakeCheck(engine: WakeCheckEngine): WakeCheckState {
+  return useSyncExternalStore(
+    (onStoreChange) => engine.subscribe(onStoreChange),
+    () => engine.getState()
+  );
 }
 
 export interface WakeCameraPreviewProps {

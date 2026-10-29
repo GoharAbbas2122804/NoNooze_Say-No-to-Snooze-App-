@@ -19,6 +19,8 @@ import { Step } from '../../domain/types';
 import { useTheme } from '../../theme/ThemeProvider';
 import { typography, spacing, radii } from '../../theme/tokens';
 import { notify } from '../../ui/notify';
+import { DefaultWakeCheckEngine } from '../../wake/engine';
+import { useWakeCheck, WakeCameraPreview } from '../../wake/contract';
 
 export interface FaceChallengeProps {
   step: Step;
@@ -36,10 +38,29 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
 }) => {
   const { colors, isDark } = useTheme();
 
+  const [engine] = useState(() => new DefaultWakeCheckEngine());
+  const wakeState = useWakeCheck(engine);
+
   const [confidence, setConfidence] = useState<number>(0);
   const [holdProgress, setHoldProgress] = useState<number>(0);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [manualVerified, setManualVerified] = useState<boolean>(false);
+  const completedRef = React.useRef(false);
+
+  const isVerified = wakeState.phase === 'success' || manualVerified;
+
+  useEffect(() => {
+    if (wakeState.phase === 'success' && !completedRef.current) {
+      completedRef.current = true;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      notify.success('Wakefulness verified by AI model!');
+      onProgress();
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [wakeState.phase, onProgress, onComplete]);
 
   // Scanning HUD animation
   const scanLineY = useSharedValue(0);
@@ -75,7 +96,7 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
           const next = prev + 25;
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           if (next >= 100) {
-            setIsVerified(true);
+            setManualVerified(true);
             setIsVerifying(false);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             notify.success('Wakefulness verified by AI model!');
@@ -104,7 +125,7 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
 
   const handleReset = () => {
     setIsVerifying(false);
-    setIsVerified(false);
+    setManualVerified(false);
     setHoldProgress(0);
     setConfidence(0);
   };
@@ -137,6 +158,7 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
           },
         ]}
       >
+        <WakeCameraPreview engine={engine} style={StyleSheet.absoluteFill} />
         {/* Animated Scan Line */}
         <Animated.View
           style={[
