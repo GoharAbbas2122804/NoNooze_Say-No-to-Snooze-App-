@@ -45,3 +45,8 @@ example
 # test coverage
 coverage/
 
+# Python & ML cache
+__pycache__/
+*.pyc
+.pytest_cache/
+ml/mock_data/
