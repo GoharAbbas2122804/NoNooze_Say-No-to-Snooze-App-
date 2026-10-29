@@ -11,8 +11,7 @@ export interface DotMatrixDisplayProps {
   gap?: number;
 }
 
-// 5 columns x 7 rows standard bitmap matrices for digits 0-9
-const DIGIT_BITMAPS: Record<string, number[][]> = {
+export const DIGIT_BITMAPS: Record<string, number[][]> = {
   '0': [
     [1, 1, 1, 1, 1],
     [1, 0, 0, 0, 1],
@@ -105,7 +104,7 @@ const DIGIT_BITMAPS: Record<string, number[][]> = {
   ],
 };
 
-function MatrixDigit({
+export function MatrixDigit({
   char,
   activeColor,
   inactiveColor,

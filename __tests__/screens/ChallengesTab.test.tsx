@@ -29,7 +29,7 @@ describe('ChallengesTabScreen', () => {
     await render(<ChallengesTabScreen />);
 
     // Default is Face AI
-    expect(screen.getByText('Facial Expression Wake Check')).toBeTruthy();
+    expect(screen.getByText('Face Wake Check')).toBeTruthy();
 
     // Switch to Environment tab
     await user.press(screen.getByTestId('challenge-tab-environment'));

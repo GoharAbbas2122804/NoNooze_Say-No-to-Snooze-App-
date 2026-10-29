@@ -16,6 +16,7 @@ import { notify } from '../../ui/notify';
 import { typography, spacing, radii } from '../../theme/tokens';
 import { Plus, Minus, X, Lock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { BlinkingEyesMiniIllustration } from './BlinkingEyesMiniIllustration';
 
 interface StepBuilderProps {
   steps: Step[];
@@ -180,22 +181,26 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
                 {def.description}
               </Text>
 
-              {/* 10x10 Dot Matrix Visual (Inspiration 03) */}
+              {/* 10x10 Dot Matrix Visual or Blinking Eyes Mini Illustration */}
               <View style={styles.dotMatrixPreview}>
-                {Array.from({ length: 40 }).map((_, dotIdx) => (
-                  <View
-                    key={dotIdx}
-                    style={[
-                      styles.previewDot,
-                      {
-                        backgroundColor:
-                          dotIdx < step.target * 8
-                            ? colors.accentYellow
-                            : colors.dotInactive,
-                      },
-                    ]}
-                  />
-                ))}
+                {step.methodId === 'face' ? (
+                  <BlinkingEyesMiniIllustration />
+                ) : (
+                  Array.from({ length: 40 }).map((_, dotIdx) => (
+                    <View
+                      key={dotIdx}
+                      style={[
+                        styles.previewDot,
+                        {
+                          backgroundColor:
+                            dotIdx < step.target * 8
+                              ? colors.accentYellow
+                              : colors.dotInactive,
+                        },
+                      ]}
+                    />
+                  ))
+                )}
               </View>
 
               {/* Target Counter */}
