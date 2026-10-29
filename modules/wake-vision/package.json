@@ -1,0 +1,7 @@
+{
+  "name": "wake-vision",
+  "version": "1.0.0",
+  "description": "Native Kotlin TFLite Eye Crop & Ocular Alertness Processor for NoNooze",
+  "main": "index.ts",
+  "types": "index.ts"
+}

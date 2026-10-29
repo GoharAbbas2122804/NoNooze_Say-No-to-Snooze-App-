@@ -1,0 +1,7 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "package": "com.nonooze.wakevision",
+    "modules": ["com.nonooze.wakevision.WakeVisionModule"]
+  }
+}
