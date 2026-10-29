@@ -44,7 +44,16 @@ export class FakeAlarmScheduler implements AlarmScheduler {
 
   async openBatteryOptimizationSettings(): Promise<void> {}
 
-  async stopRinging(): Promise<void> {
+  scheduledWatchdogs: Set<string> = new Set();
+
+  async stopRinging(alarmId?: string): Promise<void> {
     this.isRinging = false;
+    if (alarmId) {
+      this.scheduledWatchdogs.delete(alarmId);
+    }
+  }
+
+  async scheduleWatchdog(alarmId: string): Promise<void> {
+    this.scheduledWatchdogs.add(alarmId);
   }
 }

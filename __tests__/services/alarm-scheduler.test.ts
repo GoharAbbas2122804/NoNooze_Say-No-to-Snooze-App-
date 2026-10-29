@@ -54,8 +54,27 @@ describe('AlarmSchedulerService (with notify-kit mock)', () => {
     expect(notifee.cancelNotification).toHaveBeenCalledWith('alarm-prod-1');
   });
 
-  it('stops foreground service on stopRinging', async () => {
-    await service.stopRinging();
+  it('stops foreground service and cancels watchdog on stopRinging', async () => {
+    await service.stopRinging('alarm-prod-1');
     expect(notifee.stopForegroundService).toHaveBeenCalled();
+    expect(notifee.cancelTriggerNotification).toHaveBeenCalledWith('alarm-prod-1_watchdog');
+    expect(notifee.cancelNotification).toHaveBeenCalledWith('alarm-prod-1_watchdog');
+  });
+
+  it('schedules watchdog notification 60s ahead', async () => {
+    await service.scheduleWatchdog('alarm-prod-1');
+
+    expect(notifee.createTriggerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'alarm-prod-1_watchdog',
+        data: expect.objectContaining({
+          alarmId: 'alarm-prod-1',
+          isWatchdog: 'true',
+        }),
+      }),
+      expect.objectContaining({
+        alarmManager: { allowWhileIdle: true },
+      })
+    );
   });
 });

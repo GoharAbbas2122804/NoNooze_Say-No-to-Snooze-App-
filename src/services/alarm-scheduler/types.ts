@@ -5,6 +5,7 @@ export interface PermissionStatus {
   notifications: boolean;
   fullScreenIntent: boolean;
   batteryOptimizationIgnored: boolean;
+  camera?: boolean;
 }
 
 export interface AlarmScheduler {
@@ -15,5 +16,6 @@ export interface AlarmScheduler {
   requestPermissions(): Promise<PermissionStatus>;
   openExactAlarmSettings(): Promise<void>;
   openBatteryOptimizationSettings(): Promise<void>;
-  stopRinging(): Promise<void>;
+  stopRinging(alarmId?: string): Promise<void>;
+  scheduleWatchdog?(alarmId: string): Promise<void>;
 }

@@ -112,17 +112,31 @@ export default function RingingScreen() {
     };
   }, [activeAlarm?.sound]);
 
+  // Watchdog failsafe: schedule a 60-second re-ring notification if killed mid-challenge
+  useEffect(() => {
+    const currentId = activeAlarm?.id || id || 'default_active_alarm';
+    const scheduler = getAlarmScheduler();
+    if (scheduler.scheduleWatchdog) {
+      scheduler.scheduleWatchdog(currentId).catch(() => {});
+      const interval = setInterval(() => {
+        scheduler.scheduleWatchdog?.(currentId).catch(() => {});
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [activeAlarm?.id, id]);
+
   // When step runner completes all steps
   useEffect(() => {
     if (state.status === 'completed') {
       stopAlarmAudio();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       notify.success('Alarm dismissed!');
-      getAlarmScheduler().stopRinging().catch(() => {});
+      const currentId = activeAlarm?.id || id;
+      getAlarmScheduler().stopRinging(currentId).catch(() => {});
       useAlarmStore.getState().setActiveAlarmId(null);
       router.replace('/success');
     }
-  }, [state.status]);
+  }, [state.status, activeAlarm?.id, id]);
 
   const currentStep = state.status === 'running' ? state.currentStep : null;
   const methodDef = currentStep ? DISMISSAL_METHODS[currentStep.methodId] : null;

@@ -131,12 +131,58 @@ export class AlarmSchedulerService implements AlarmScheduler {
     await notifee.openBatteryOptimizationSettings();
   }
 
-  async stopRinging(): Promise<void> {
+  async stopRinging(alarmId?: string): Promise<void> {
     try {
       await notifee.stopForegroundService();
+      if (alarmId) {
+        await notifee.cancelTriggerNotification(`${alarmId}_watchdog`);
+        await notifee.cancelNotification(`${alarmId}_watchdog`);
+      }
     } catch {
       // Ignore if not currently in foreground service
     }
+  }
+
+  async scheduleWatchdog(alarmId: string): Promise<void> {
+    const channelId = await this.ensureChannel();
+    const triggerDate = new Date(Date.now() + 60 * 1000);
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: triggerDate.getTime(),
+      alarmManager: {
+        allowWhileIdle: true,
+      },
+    };
+
+    await notifee.createTriggerNotification(
+      {
+        id: `${alarmId}_watchdog`,
+        title: `${APP_NAME}: Alarm Active`,
+        body: 'Alarm still active! Complete challenges to dismiss.',
+        data: {
+          alarmId,
+          isWatchdog: 'true',
+        },
+        android: {
+          channelId,
+          category: AndroidCategory.ALARM,
+          importance: AndroidImportance.HIGH,
+          fullScreenAction: {
+            id: 'open_ringing',
+            launchActivity: 'default',
+          },
+          pressAction: {
+            id: 'open_ringing',
+            launchActivity: 'default',
+          },
+          asForegroundService: true,
+          ongoing: true,
+          autoCancel: false,
+          color: '#E5372B',
+        },
+      },
+      trigger
+    );
   }
 }
 

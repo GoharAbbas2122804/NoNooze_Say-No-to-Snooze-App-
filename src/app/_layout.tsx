@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import notifee, { EventType } from 'react-native-notify-kit';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -68,6 +69,36 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
     useAlarmStore.getState().rescheduleAll().catch(() => {});
+
+    // Route to ringing screen if launched by alarm notification
+    notifee
+      .getInitialNotification()
+      .then((initial) => {
+        const alarmId = initial?.notification?.data?.alarmId;
+        if (alarmId) {
+          useAlarmStore.getState().setActiveAlarmId(String(alarmId));
+          router.replace({ pathname: '/ringing', params: { id: String(alarmId) } });
+        }
+      })
+      .catch(() => {});
+
+    // Listen to live / foreground notification events
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      const alarmId = detail.notification?.data?.alarmId;
+      if (
+        alarmId &&
+        (type === EventType.PRESS ||
+          type === EventType.ACTION_PRESS ||
+          type === EventType.DELIVERED)
+      ) {
+        useAlarmStore.getState().setActiveAlarmId(String(alarmId));
+        router.replace({ pathname: '/ringing', params: { id: String(alarmId) } });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [fontsLoaded]);
 
   return (
