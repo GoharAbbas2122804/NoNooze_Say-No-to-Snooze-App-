@@ -80,7 +80,7 @@ export default function EditAlarmScreen() {
   const [days, setDays] = useState<DayOfWeek[]>(existingAlarm?.days || []);
   const [label, setLabel] = useState(existingAlarm?.label || '');
   const [steps, setSteps] = useState<Step[]>(
-    existingAlarm?.steps || [{ methodId: 'face', target: 1 }]
+    existingAlarm?.steps || [{ methodId: 'math', target: 3 }]
   );
   const [soundName, setSoundName] = useState(
     existingAlarm?.sound || defaultStoreSound || 'Melodian'

@@ -28,6 +28,7 @@ import {
   Minus,
   Plus,
   FolderPlus,
+  Camera,
 } from 'lucide-react-native';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import { PermissionStatus } from '../services/alarm-scheduler/types';
@@ -66,6 +67,7 @@ export default function SettingsScreen() {
     exactAlarms: false,
     fullScreenIntent: true,
     batteryOptimizationIgnored: false,
+    camera: false,
   });
 
   const checkStatus = useCallback(async () => {
@@ -822,6 +824,40 @@ export default function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+
+        {/* Camera Permission Card (Week 2 AI Challenges) */}
+        <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+          <View style={styles.permissionIconCol}>
+            <View style={[styles.permIconCircle, { backgroundColor: colors.surfaceAlt }]}>
+              <Camera size={iconSizes.sm} color={status.camera ? colors.accentYellow : colors.muted} />
+            </View>
+          </View>
+          <View style={styles.permissionContentCol}>
+            <View style={styles.permissionTitleRow}>
+              <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Camera Access
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: status.camera ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    { color: status.camera ? colors.success : colors.error, fontFamily: typography.fonts.bold },
+                  ]}
+                >
+                  {status.camera ? 'GRANTED' : 'OPTIONAL (AI CHALLENGES)'}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.permissionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+              Required for Week 2 face smile detection, pushup tracking, and room light scan challenges.
+            </Text>
           </View>
         </View>
 
