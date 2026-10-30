@@ -28,8 +28,9 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
       <LiveWakeCheck
         engine={engine}
         targetHoldSeconds={holdSeconds}
-        livenessEnabled={true}
-        onProgress={onProgress}
+        livenessEnabled={false}
+        // The face check reports frame progress continuously; only completion advances a step.
+        onProgress={() => {}}
         onComplete={onComplete}
         onFallbackMath={onFallbackMath}
       />

@@ -10,7 +10,6 @@ import {
 import { Step, MethodId } from '../../domain/types';
 import { DISMISSAL_METHODS } from '../../domain/dismissal-registry';
 import { useTheme } from '../../theme/ThemeProvider';
-import { TwoToneTitle } from '../ui/TwoToneTitle';
 import { RoundButton } from '../ui/RoundButton';
 import { notify } from '../../ui/notify';
 import { typography, spacing, radii } from '../../theme/tokens';
@@ -27,7 +26,7 @@ interface StepBuilderProps {
 export const StepBuilder: React.FC<StepBuilderProps> = ({
   steps,
   onChange,
-  alarmTime = '10:30',
+  alarmTime: _alarmTime = '10:30',
 }) => {
   const { colors } = useTheme();
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -85,46 +84,17 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Two-Tone Title: "Choose" black / "the Game" grey */}
-      <TwoToneTitle primary="Choose" secondary="the Game" />
-
-      {/* Round Dial with fine tick marks showing alarm time (Inspiration 03) */}
-      <View style={styles.dialContainer}>
-        <View style={[styles.dialCircle, { borderColor: colors.borderSubtle, backgroundColor: colors.surface }]}>
-          {/* Circular fine tick marks around the ring */}
-          {Array.from({ length: 24 }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dialTick,
-                {
-                  transform: [
-                    { rotate: `${i * 15}deg` },
-                    { translateY: -64 },
-                  ],
-                  backgroundColor: i % 6 === 0 ? colors.ink : colors.borderSubtle,
-                },
-              ]}
-            />
-          ))}
-          {/* Centered Trigger Time */}
-          <Text
-            style={[
-              styles.dialTimeText,
-              { color: colors.ink, fontFamily: typography.fonts.bold },
-            ]}
-          >
-            {alarmTime}
-          </Text>
+      <View style={styles.sequenceHeader}>
+        <View style={styles.sequenceCopy}>
+          <Text style={[styles.sequenceTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>Dismissal sequence</Text>
+          <Text style={[styles.sequenceSubtitle, { color: colors.muted, fontFamily: typography.fonts.medium }]}>Complete every step, in order, to turn off the alarm.</Text>
+        </View>
+        <View style={[styles.sequenceCount, { backgroundColor: colors.surfaceAlt }]}>
+          <Text style={[styles.sequenceCountText, { color: colors.accentYellow, fontFamily: typography.fonts.bold }]}>{steps.length}</Text>
         </View>
       </View>
 
-      {/* Horizontal Carousel of Challenge Cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.carouselContainer}
-      >
+      <View style={styles.sequenceList}>
         {steps.map((step, index) => {
           const def = DISMISSAL_METHODS[step.methodId];
           return (
@@ -247,13 +217,13 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
             <Plus size={28} color="#0D0D0D" strokeWidth={2.5} />
           </View>
           <Text style={[styles.addCardTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-            Add Game
+            Add a step
           </Text>
           <Text style={[styles.addCardSub, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
-            Choose challenge
+            Choose another challenge
           </Text>
         </Pressable>
-      </ScrollView>
+      </View>
 
       {/* Challenge Picker Modal */}
       <Modal
@@ -321,39 +291,24 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: spacing.md,
+    marginVertical: spacing.sm,
   },
-  dialContainer: {
+  sequenceHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: spacing.base,
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
-  dialCircle: {
-    width: 144,
-    height: 144,
-    borderRadius: 72,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  dialTick: {
-    position: 'absolute',
-    top: 70,
-    width: 1.5,
-    height: 8,
-    borderRadius: 1,
-  },
-  dialTimeText: {
-    fontSize: typography.sizes.h2,
-    letterSpacing: -0.5,
-  },
-  carouselContainer: {
-    paddingVertical: spacing.sm,
-    gap: spacing.md,
+  sequenceCopy: { flex: 1, paddingRight: spacing.md },
+  sequenceTitle: { fontSize: typography.sizes.h3 },
+  sequenceSubtitle: { fontSize: typography.sizes.caption, marginTop: 3 },
+  sequenceCount: { minWidth: 34, height: 34, paddingHorizontal: spacing.sm, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  sequenceCountText: { fontSize: typography.sizes.body },
+  sequenceList: {
+    gap: spacing.sm,
   },
   carouselCard: {
-    width: 270,
+    width: '100%',
     borderRadius: radii.card,
     padding: spacing.base,
     borderWidth: 1,
@@ -424,24 +379,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    minHeight: 72,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
     borderStyle: 'dashed',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
   addIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   addCardTitle: {
-    fontSize: typography.sizes.bodyLarge,
+    fontSize: typography.sizes.body,
   },
   addCardSub: {
     fontSize: typography.sizes.caption,
-    marginTop: 2,
+    marginTop: 1,
   },
   modalOverlay: {
     flex: 1,

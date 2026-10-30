@@ -213,6 +213,23 @@ export default function RingingScreen() {
         {/* Step Runner Progress Indicator */}
         {state.status === 'running' && (
           <View style={[styles.stepCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.sequenceStatus}>
+              <Text style={[styles.sequenceStatusLabel, { color: colors.muted, fontFamily: typography.fonts.bold }]}>YOUR WAKE SEQUENCE</Text>
+              <Text style={[styles.sequenceStatusCount, { color: colors.accentYellow, fontFamily: typography.fonts.bold }]}>
+                {state.stepIndex} OF {state.totalSteps} COMPLETE
+              </Text>
+            </View>
+            <View style={styles.sequenceTrack} accessibilityLabel={`${state.stepIndex} of ${state.totalSteps} challenges complete`}>
+              {state.steps.map((step, index) => (
+                <View
+                  key={`${step.methodId}-${index}`}
+                  style={[
+                    styles.sequenceSegment,
+                    { backgroundColor: index < state.stepIndex ? colors.success : index === state.stepIndex ? colors.accentYellow : colors.surfaceAlt },
+                  ]}
+                />
+              ))}
+            </View>
             <View style={styles.stepHeader}>
               <View style={[styles.stepBadge, { backgroundColor: colors.accentYellow }]}>
                 <Text style={[styles.stepBadgeText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
@@ -224,11 +241,20 @@ export default function RingingScreen() {
               </Text>
             </View>
 
+            {state.stepIndex + 1 < state.totalSteps && (
+              <Text style={[styles.nextStepText, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
+                NEXT · {DISMISSAL_METHODS[state.steps[state.stepIndex + 1].methodId]?.title}
+              </Text>
+            )}
+
             {/* Active Challenge Component */}
             {ChallengeComponent && currentStep && (
               <ChallengeComponent
+                key={`${state.stepIndex}-${currentStep.methodId}`}
                 step={currentStep}
-                onProgress={() => dispatch({ type: 'PROGRESS' })}
+                onProgress={() => {
+                  if (currentStep.methodId !== 'face') dispatch({ type: 'PROGRESS' });
+                }}
                 onComplete={() => dispatch({ type: 'PROGRESS', increment: currentStep.target })}
               />
             )}
@@ -301,6 +327,11 @@ const styles = StyleSheet.create({
     padding: spacing.base,
     alignItems: 'center',
   },
+  sequenceStatus: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  sequenceStatusLabel: { fontSize: typography.sizes.micro, letterSpacing: 0.8 },
+  sequenceStatusCount: { fontSize: typography.sizes.micro, letterSpacing: 0.5 },
+  sequenceTrack: { width: '100%', flexDirection: 'row', gap: 4, marginBottom: spacing.base },
+  sequenceSegment: { flex: 1, height: 4, borderRadius: 2 },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -319,4 +350,5 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: typography.sizes.bodyLarge,
   },
+  nextStepText: { width: '100%', fontSize: typography.sizes.caption, marginTop: -spacing.xs, marginBottom: spacing.md, letterSpacing: 0.5 },
 });

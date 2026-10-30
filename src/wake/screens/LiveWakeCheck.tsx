@@ -16,9 +16,6 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { TwoToneTitle } from '../../components/ui/TwoToneTitle';
 import { DotMatrixCountdown } from '../../components/alarm/DotMatrixCountdown';
 import { ViewfinderCard } from '../components/ViewfinderCard';
-import { CheckPills } from '../components/CheckPills';
-import { AlertnessTick } from '../components/AlertnessTick';
-import { HintText } from '../components/HintText';
 import { LivenessOverlay } from '../components/LivenessOverlay';
 import { WakeSuccessView } from './WakeSuccessView';
 import { WakeFallbackView } from './WakeFallbackView';
@@ -43,7 +40,7 @@ export interface LiveWakeCheckProps {
 export function LiveWakeCheck({
   engine: customEngine,
   targetHoldSeconds = 5,
-  livenessEnabled = true,
+  livenessEnabled = false,
   onProgress,
   onComplete,
   onFallbackMath,
@@ -196,25 +193,22 @@ export function LiveWakeCheck({
       showsVerticalScrollIndicator={false}
       testID="live-wake-check-screen"
     >
-      {/* Title */}
-      <Animated.View style={[styles.titleWrapper, animatedTitleStyle]}>
-        <TwoToneTitle primary={phaseTitle.primary} secondary={phaseTitle.secondary} />
-      </Animated.View>
+      <View style={styles.scanHeader}>
+        <Text style={[styles.scanEyebrow, { color: colors.accentYellow }]}>NOONOOZE · WAKE AI</Text>
+        <Animated.View style={[styles.titleWrapper, animatedTitleStyle]}>
+          <TwoToneTitle primary={phaseTitle.primary} secondary={phaseTitle.secondary} />
+        </Animated.View>
+        <Text style={[styles.scanDescription, { color: colors.muted }]}>On-device facial readiness scan</Text>
+      </View>
 
-      {/* Viewfinder Card */}
       <Animated.View style={[styles.viewfinderWrapper, animatedCardStyle]}>
         <ViewfinderCard
           engine={engine}
           state={state}
           fillLight={state.checks.lighting.level === 'dark'}
         />
-        {/* Inline Hint label */}
-        <View style={styles.hintContainer}>
-          <HintText hint={state.hint} />
-        </View>
       </Animated.View>
 
-      {/* Countdown & Alertness strip */}
       <View style={styles.hudSection}>
         <DotMatrixCountdown
           seconds={remainingHoldSeconds}
@@ -222,12 +216,7 @@ export function LiveWakeCheck({
           gap={2.5}
           label="SECONDS TO HOLD"
         />
-        <AlertnessTick alertness={state.alertness} />
-      </View>
-
-      {/* Status Check Pills */}
-      <View style={styles.pillsSection}>
-        <CheckPills checks={state.checks} />
+        <Text style={[styles.scanDescription, { color: colors.muted }]}>Keep your eyes open and look at the camera</Text>
       </View>
 
       {/* Always-visible Fallback (shown after 10s) */}
@@ -264,8 +253,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.md,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: spacing.md,
   },
+  scanHeader: { width: '100%', alignItems: 'center', gap: spacing.xs },
+  scanEyebrow: { fontSize: typography.sizes.micro, fontFamily: typography.fonts.bold, letterSpacing: 2 },
+  scanDescription: { fontSize: typography.sizes.caption, fontFamily: typography.fonts.medium, textAlign: 'center' },
   titleWrapper: {
     width: '100%',
     paddingHorizontal: spacing.xs,
@@ -275,21 +268,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginVertical: spacing.xs,
   },
-  hintContainer: {
-    position: 'absolute',
-    bottom: spacing.base,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   hudSection: {
     width: '100%',
     alignItems: 'center',
-    marginVertical: spacing.xs,
-  },
-  pillsSection: {
-    width: '100%',
     marginVertical: spacing.xs,
   },
   ghostFallbackBtn: {

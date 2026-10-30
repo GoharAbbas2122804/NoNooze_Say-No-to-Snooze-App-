@@ -13,9 +13,10 @@ export function createHoldTracker(targetMs: number, blinkGraceMs: number = 400) 
       isOpen: boolean,
       isUpright: boolean,
       faceFound: boolean,
-      dtMs: number
+      dtMs: number,
+      isLookingAtCamera: boolean = true
     ): HoldState {
-      const allValid = isOpen && isUpright && faceFound;
+      const allValid = isOpen && isUpright && isLookingAtCamera && faceFound;
 
       if (allValid) {
         closedTimeMs = 0;

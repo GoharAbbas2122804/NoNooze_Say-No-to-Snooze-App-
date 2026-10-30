@@ -15,15 +15,8 @@ import {
   X,
   Check,
   Bell,
-  Zap,
   Repeat,
   Play,
-  Smile,
-  Sun,
-  Dumbbell,
-  Calculator,
-  Plus,
-  Minus,
   FolderPlus,
   Music,
   ChevronRight,
@@ -33,6 +26,7 @@ import { DayOfWeek, Step, MethodId } from '../domain/types';
 import { parseTo12Hour, formatTo24Hour } from '../domain/time-format';
 import { useTheme } from '../theme/ThemeProvider';
 import { WheelPickerColumn } from '../components/alarm/WheelPicker';
+import { StepBuilder } from '../components/alarm/StepBuilder';
 import { RoundButton } from '../components/ui/RoundButton';
 import { notify } from '../ui/notify';
 import { typography, spacing, radii, iconSizes } from '../theme/tokens';
@@ -101,7 +95,6 @@ export default function EditAlarmScreen() {
 
   // Modals
   const [soundModalVisible, setSoundModalVisible] = useState(false);
-  const [challengeModalVisible, setChallengeModalVisible] = useState(false);
 
   // Clockwise / Chronological Hours list: 01, 02... 12 for 12h; 00, 01... 23 for 24h
   const hoursList = React.useMemo(() => {
@@ -240,22 +233,6 @@ export default function EditAlarmScreen() {
     }
   };
 
-  const handleSelectChallenge = (methodId: MethodId) => {
-    Haptics.selectionAsync().catch(() => {});
-    const def = DISMISSAL_METHODS[methodId];
-    setSteps([{ methodId, target: def?.defaultTarget || 1 }]);
-    setChallengeModalVisible(false);
-  };
-
-  const handleAdjustTarget = (delta: number) => {
-    Haptics.selectionAsync().catch(() => {});
-    const current = steps[0];
-    if (!current) return;
-    const def = DISMISSAL_METHODS[current.methodId];
-    const newTarget = Math.max(def.minTarget, Math.min(def.maxTarget, current.target + delta));
-    setSteps([{ ...current, target: newTarget }]);
-  };
-
   const handleSave = () => {
     const time =
       timeFormat === '12h'
@@ -312,8 +289,6 @@ export default function EditAlarmScreen() {
     });
     router.back();
   };
-
-  const currentChallengeDef = DISMISSAL_METHODS[steps[0]?.methodId || 'math'];
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -699,13 +674,15 @@ export default function EditAlarmScreen() {
           </View>
         </View>
 
-        {/* TWO OPTION TILES: SOUND & CHALLENGE */}
+        <StepBuilder steps={steps} onChange={setSteps} alarmTime={`${hours}:${minutes}`} />
+
+        {/* Sound selector */}
         <View style={styles.optionsTilesRow}>
           {/* Sound Selector Tile */}
           <Pressable
             testID="sound-select-btn"
             onPress={() => setSoundModalVisible(true)}
-            style={[styles.tileCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
+            style={[styles.tileCard, styles.soundTile, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
           >
             <View style={styles.tileHeader}>
               <Bell size={18} color={colors.accentYellow} />
@@ -725,29 +702,6 @@ export default function EditAlarmScreen() {
             </Text>
           </Pressable>
 
-          {/* AI Challenge Selector Tile */}
-          <Pressable
-            testID="challenge-select-btn"
-            onPress={() => setChallengeModalVisible(true)}
-            style={[styles.tileCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
-          >
-            <View style={styles.tileHeader}>
-              <Zap size={18} color={colors.accentYellow} />
-              <Text style={[styles.tileCategory, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
-                AI CHALLENGE
-              </Text>
-            </View>
-            <Text
-              testID="selected-challenge-name"
-              numberOfLines={1}
-              style={[styles.tileValue, { color: colors.ink, fontFamily: typography.fonts.bold }]}
-            >
-              {currentChallengeDef?.title || 'Challenge'} ({steps[0]?.target || 1}x)
-            </Text>
-            <Text style={[styles.tileSub, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
-              Tap to choose game
-            </Text>
-          </Pressable>
         </View>
       </ScrollView>
 
@@ -937,131 +891,6 @@ export default function EditAlarmScreen() {
         </View>
       </Modal>
 
-      {/* CHALLENGE PICKER MODAL */}
-      <Modal
-        visible={challengeModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setChallengeModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
-                Choose AI & Wake Challenge
-              </Text>
-              <RoundButton
-                size={36}
-                variant="surfaceAlt"
-                onPress={() => setChallengeModalVisible(false)}
-              >
-                <X size={18} color={colors.ink} />
-              </RoundButton>
-            </View>
-
-            <ScrollView style={{ maxHeight: 380 }}>
-              {[
-                {
-                  id: 'face' as MethodId,
-                  title: 'AI Face Wake Check',
-                  desc: 'Deep learning vision verifies wide smile and eye alertness.',
-                  Icon: Smile,
-                },
-                {
-                  id: 'environment' as MethodId,
-                  title: 'Environment & Light Scan',
-                  desc: 'Scan morning lumens (≥ 75 Lux) to break sleep inertia.',
-                  Icon: Sun,
-                },
-                {
-                  id: 'math' as MethodId,
-                  title: 'Math Problems',
-                  desc: 'Solve arithmetic equations to wake up your brain.',
-                  Icon: Calculator,
-                },
-                {
-                  id: 'pushups' as MethodId,
-                  title: 'Pushup Motion Reps',
-                  desc: 'Physical reps verified by camera pose tracking.',
-                  Icon: Dumbbell,
-                },
-              ].map(({ id: mId, title, desc, Icon }) => {
-                const isSelected = steps[0]?.methodId === mId;
-                return (
-                  <Pressable
-                    key={mId}
-                    testID={`challenge-option-${mId}`}
-                    onPress={() => handleSelectChallenge(mId)}
-                    style={[
-                      styles.challengeOptionCard,
-                      {
-                        backgroundColor: isSelected ? 'rgba(242, 230, 58, 0.12)' : colors.surfaceAlt,
-                        borderColor: isSelected ? colors.accentYellow : colors.borderSubtle,
-                      },
-                    ]}
-                  >
-                    <View style={styles.challengeIconCol}>
-                      <View
-                        style={[
-                          styles.challengeIconCircle,
-                          { backgroundColor: isSelected ? colors.accentYellow : colors.surface },
-                        ]}
-                      >
-                        <Icon size={20} color={isSelected ? '#0D0D0D' : colors.ink} />
-                      </View>
-                    </View>
-                    <View style={styles.challengeInfoCol}>
-                      <Text
-                        style={[
-                          styles.challengeTitle,
-                          {
-                            color: isSelected ? colors.accentYellow : colors.ink,
-                            fontFamily: isSelected ? typography.fonts.bold : typography.fonts.medium,
-                          },
-                        ]}
-                      >
-                        {title}
-                      </Text>
-                      <Text style={[styles.challengeDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
-                        {desc}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            {/* Target Adjuster */}
-            <View style={[styles.targetAdjusterBox, { backgroundColor: colors.surfaceAlt }]}>
-              <Text style={[styles.targetLabel, { color: colors.muted, fontFamily: typography.fonts.medium }]}>
-                Target Goal ({currentChallengeDef?.unit || 'reps'}):
-              </Text>
-              <View style={styles.targetControlsRow}>
-                <RoundButton
-                  size={36}
-                  variant="surface"
-                  onPress={() => handleAdjustTarget(-1)}
-                >
-                  <Minus size={14} color={colors.ink} />
-                </RoundButton>
-                <Text
-                  testID="challenge-target-value"
-                  style={[styles.targetValueText, { color: colors.ink, fontFamily: typography.fonts.bold }]}
-                >
-                  {steps[0]?.target || 1}
-                </Text>
-                <RoundButton
-                  size={36}
-                  variant="surface"
-                  onPress={() => handleAdjustTarget(1)}
-                >
-                  <Plus size={14} color={colors.ink} />
-                </RoundButton>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

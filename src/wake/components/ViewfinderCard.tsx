@@ -102,21 +102,16 @@ export function ViewfinderCard({ engine, state, fillLight }: ViewfinderCardProps
 
       <View
         testID="live-detection-status"
-        accessibilityLabel={faceFound ? `Face detected. Eyes ${state.signals?.eyesOpen !== undefined && state.signals.eyesOpen >= 0.55 ? 'open' : 'closed'}.` : 'Searching for face.'}
+        accessibilityLabel={faceFound ? `AI face scan active. Eyes ${state.signals?.eyesOpen !== undefined && state.signals.eyesOpen >= 0.7 ? 'open' : 'closed'}.` : 'AI face scan searching.'}
         style={[styles.detectionBadge, { backgroundColor: colors.surface }]}
         pointerEvents="none"
       >
         <Text style={[styles.detectionTitle, { color: faceFound ? colors.accentYellow : colors.muted }]}>
-          {faceFound ? 'FACE DETECTED' : 'SEARCHING FOR FACE'}
+          {faceFound ? 'AI FACE SCAN · LOCKED' : 'AI FACE SCAN · SEARCHING'}
         </Text>
         {faceFound && state.signals && (
           <Text testID="live-eye-prediction" style={[styles.detectionDetail, { color: colors.ink }]}>
-            EYES {state.signals.eyesOpen >= 0.55 ? 'OPEN' : 'CLOSED'} · {Math.round(state.signals.eyesOpen * 100)}%
-          </Text>
-        )}
-        {faceFound && state.signals && (
-          <Text style={[styles.modelDetail, { color: colors.muted }]}>
-            ML {Math.round((state.signals.source.mlkit ?? 0) * 100)}% · CNN {Math.round((state.signals.source.cnn ?? 0) * 100)}%
+            EYES {state.signals.eyesOpen >= 0.7 ? 'OPEN' : 'HOLD'} · {Math.round(state.signals.eyesOpen * 100)}%
           </Text>
         )}
       </View>
@@ -188,10 +183,5 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: typography.sizes.caption,
     fontFamily: typography.fonts.bold,
-  },
-  modelDetail: {
-    marginTop: 2,
-    fontSize: typography.sizes.micro,
-    fontFamily: typography.fonts.medium,
   },
 });

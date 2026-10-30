@@ -48,11 +48,15 @@ export function createWakeStateMachine(
     if (signals.faceBox.w < 0.22 || signals.faceBox.h < 0.22) return 'move-closer';
     if (signals.faceBox.w > 0.85 || signals.faceBox.h > 0.85) return 'move-back';
     if (signals.upright < 0.5) return 'sit-up';
-    if (phase === 'verifying' && signals.eyesOpen < 0.6) return 'eyes-closed';
-    if (phase === 'verifying' && (Math.abs(signals.yaw) > 18 || Math.abs(signals.pitch) > 18)) {
+    if (phase === 'verifying' && signals.eyesOpen < 0.7) return 'eyes-closed';
+    if (phase === 'verifying' && !isLookingAtCamera(signals)) {
       return 'look-at-camera';
     }
     return 'hold-still';
+  }
+
+  function isLookingAtCamera(signals: FrameSignals): boolean {
+    return Math.abs(signals.yaw) <= 18 && Math.abs(signals.pitch) <= 18;
   }
 
   function computeLightingLevel(brightness: number): 'dark' | 'dim' | 'ok' | 'bright' {
@@ -171,7 +175,13 @@ export function createWakeStateMachine(
     }
 
     if (phase === 'verifying') {
-      const holdState = holdTracker.update(smoothResult.isOpen, isUpright, signals.faceFound, dtMs);
+      const holdState = holdTracker.update(
+        smoothResult.isOpen,
+        isUpright,
+        signals.faceFound,
+        dtMs,
+        isLookingAtCamera(signals)
+      );
       latestHoldMs = holdState.heldMs;
       isHoldMet = holdState.isMet;
 

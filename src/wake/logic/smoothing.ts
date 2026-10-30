@@ -7,7 +7,7 @@ export interface HysteresisThresholds {
 
 export const SENSITIVITY_THRESHOLDS: Record<Sensitivity, HysteresisThresholds> = {
   relaxed: { open: 0.50, closed: 0.30 },
-  standard: { open: 0.60, closed: 0.40 },
+  standard: { open: 0.70, closed: 0.45 },
   strict: { open: 0.70, closed: 0.50 },
 };
 
