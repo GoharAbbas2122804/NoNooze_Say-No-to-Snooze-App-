@@ -19,6 +19,8 @@ jest.mock('react-native-reanimated', () => {
     },
     useSharedValue: (initial) => ({ value: initial }),
     useAnimatedStyle: (fn) => fn(),
+    useReducedMotion: () => false,
+    interpolateColor: (val, input, output) => output?.[0] || '#000000',
     withTiming: (toValue) => toValue,
     withSequence: (...args) => args[args.length - 1],
     withSpring: (toValue) => toValue,

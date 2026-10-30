@@ -27,13 +27,16 @@ import { DISMISSAL_METHODS } from '../domain/dismissal-registry';
 import { DotMatrixDisplay } from '../components/alarm/DotMatrixDisplay';
 import { useTheme } from '../theme/ThemeProvider';
 import { notify } from '../ui/notify';
-import { typography, spacing, radii } from '../theme/tokens';
+import { typography, spacing, radii, darkColors } from '../theme/tokens';
 import * as Haptics from 'expo-haptics';
 import { playAlarmAudio, stopAlarmAudio } from '../services/sound-service';
+import { useAlarmTheme } from '../wake/hooks/useAlarmTheme';
 
 export default function RingingScreen() {
   useKeepAwake();
-  const { colors } = useTheme();
+  const { colors: baseColors } = useTheme();
+  const alarmTheme = useAlarmTheme();
+  const colors = alarmTheme === 'dark' ? darkColors : baseColors;
 
   const { id } = useLocalSearchParams<{ id?: string }>();
   const activeAlarm = useAlarmStore((state) =>

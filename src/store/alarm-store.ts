@@ -17,12 +17,24 @@ export interface AlarmStoreState {
   vibrate: boolean;
   customSounds: { id: string; name: string; description: string; uri?: string; category: string }[];
 
+  // Wake Check Settings
+  wakeSensitivity: 'relaxed' | 'standard' | 'strict';
+  wakeHoldSeconds: number;
+  wakeLiveness: boolean;
+  wakeFillLight: boolean;
+  darkAtNight: boolean;
+
   // Actions
   setTimeFormat: (format: '12h' | '24h') => void;
   setAlarmVolume: (volume: number) => void;
   setDefaultSound: (sound: string) => void;
   setGentleWake: (enabled: boolean) => void;
   setVibrate: (enabled: boolean) => void;
+  setWakeSensitivity: (sensitivity: 'relaxed' | 'standard' | 'strict') => void;
+  setWakeHoldSeconds: (seconds: number) => void;
+  setWakeLiveness: (enabled: boolean) => void;
+  setWakeFillLight: (enabled: boolean) => void;
+  setDarkAtNight: (enabled: boolean) => void;
   addCustomSound: (sound: { id: string; name: string; description: string; uri?: string; category: string }) => void;
   removeCustomSound: (id: string) => void;
   addAlarm: (
@@ -50,6 +62,11 @@ export const useAlarmStore = create<AlarmStoreState>()(
       gentleWake: true,
       vibrate: true,
       customSounds: [],
+      wakeSensitivity: 'standard',
+      wakeHoldSeconds: 5,
+      wakeLiveness: true,
+      wakeFillLight: true,
+      darkAtNight: true,
 
       setTimeFormat: (format) => set({ timeFormat: format }),
       setAlarmVolume: (volume) =>
@@ -57,6 +74,12 @@ export const useAlarmStore = create<AlarmStoreState>()(
       setDefaultSound: (sound) => set({ defaultSound: sound }),
       setGentleWake: (gentleWake) => set({ gentleWake }),
       setVibrate: (vibrate) => set({ vibrate }),
+      setWakeSensitivity: (wakeSensitivity) => set({ wakeSensitivity }),
+      setWakeHoldSeconds: (wakeHoldSeconds) =>
+        set({ wakeHoldSeconds: Math.max(3, Math.min(10, Math.round(wakeHoldSeconds))) }),
+      setWakeLiveness: (wakeLiveness) => set({ wakeLiveness }),
+      setWakeFillLight: (wakeFillLight) => set({ wakeFillLight }),
+      setDarkAtNight: (darkAtNight) => set({ darkAtNight }),
       addCustomSound: (sound) =>
         set((state) => ({
           customSounds: [

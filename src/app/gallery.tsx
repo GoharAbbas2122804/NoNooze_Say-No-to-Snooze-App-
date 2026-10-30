@@ -5,10 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ArrowLeft, Plus, Check } from 'lucide-react-native';
+import { ArrowLeft, Plus, Check, Play, Camera, Eye, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TwoToneTitle } from '../components/ui/TwoToneTitle';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
@@ -22,11 +24,26 @@ import { PillBar } from '../components/alarm/PillBar';
 import { notify } from '../ui/notify';
 import { typography, spacing, radii, iconSizes } from '../theme/tokens';
 import { Alarm, DayOfWeek } from '../domain/types';
+import { FakeWakeCheckEngine, FakeScenario } from '../wake/fake/FakeWakeCheckEngine';
+import { LiveWakeCheck } from '../wake/screens/LiveWakeCheck';
+import { DotRing } from '../wake/components/DotRing';
+import { CheckPills } from '../wake/components/CheckPills';
+import { AlertnessTick } from '../wake/components/AlertnessTick';
+import { DotMatrixCountdown } from '../components/alarm/DotMatrixCountdown';
+import { BlinkingEyesMiniIllustration } from '../components/alarm/BlinkingEyesMiniIllustration';
+import { CameraRationale } from '../wake/screens/CameraRationale';
+import { SetupGuide } from '../wake/screens/SetupGuide';
+import { CalibrationModal } from '../wake/screens/CalibrationModal';
 
 export default function ComponentGalleryScreen() {
   const { colors, isDark } = useTheme();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(4);
   const [dotsProgress, setDotsProgress] = useState(2);
+  const [selectedScenario, setSelectedScenario] = useState<FakeScenario>('happy-path');
+  const [wakeModalVisible, setWakeModalVisible] = useState(false);
+  const [rationaleModalVisible, setRationaleModalVisible] = useState(false);
+  const [setupGuideModalVisible, setSetupGuideModalVisible] = useState(false);
+  const [calibrationModalVisible, setCalibrationModalVisible] = useState(false);
 
   const sampleAlarmEnabled: Alarm = {
     id: 'gallery-1',
@@ -241,6 +258,136 @@ export default function ComponentGalleryScreen() {
             </RoundButton>
           </View>
         </View>
+
+        {/* Section 9: Wake Check Scenario Engine & Hero UI */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+            9. WAKE-CHECK SCENARIO ENGINE & HERO UI
+          </Text>
+
+          {/* Scenario Picker Chips */}
+          <View style={styles.scenarioChipsWrap}>
+            {(
+              [
+                'happy-path',
+                'dark-room',
+                'no-face',
+                'never-blinks',
+                'permission-denied',
+                'camera-error',
+                'model-error',
+              ] as FakeScenario[]
+            ).map((scen) => {
+              const active = selectedScenario === scen;
+              return (
+                <Pressable
+                  key={scen}
+                  testID={`scenario-chip-${scen}`}
+                  onPress={() => setSelectedScenario(scen)}
+                  style={[
+                    styles.scenarioChip,
+                    {
+                      backgroundColor: active ? colors.accentYellow : colors.surfaceAlt,
+                      borderColor: active ? colors.accentYellow : colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.scenarioChipText,
+                      {
+                        color: active ? '#0D0D0D' : colors.ink,
+                        fontFamily: active ? typography.fonts.bold : typography.fonts.medium,
+                      },
+                    ]}
+                  >
+                    {scen}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Launch Buttons Row */}
+          <Pressable
+            testID="launch-wake-check-btn"
+            onPress={() => setWakeModalVisible(true)}
+            style={[styles.primaryActionBtn, { backgroundColor: colors.accentYellow }]}
+          >
+            <Play size={18} color="#0D0D0D" />
+            <Text style={[styles.primaryActionBtnText, { color: '#0D0D0D', fontFamily: typography.fonts.bold }]}>
+              Run Wake Check ({selectedScenario})
+            </Text>
+          </Pressable>
+
+          <View style={styles.flowButtonsRow}>
+            <Pressable
+              onPress={() => setRationaleModalVisible(true)}
+              style={[styles.flowSubBtn, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Camera size={14} color={colors.ink} />
+              <Text style={[styles.flowSubBtnText, { color: colors.ink }]}>Rationale</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setSetupGuideModalVisible(true)}
+              style={[styles.flowSubBtn, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Eye size={14} color={colors.ink} />
+              <Text style={[styles.flowSubBtnText, { color: colors.ink }]}>Setup Guide</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setCalibrationModalVisible(true)}
+              style={[styles.flowSubBtn, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <RefreshCw size={14} color={colors.ink} />
+              <Text style={[styles.flowSubBtnText, { color: colors.ink }]}>Calibration</Text>
+            </Pressable>
+          </View>
+
+          {/* Mini Illustrations & HUD Previews */}
+          <View style={[styles.wakePreviewCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.miniHeader, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
+              COMPONENT HUD PREVIEWS
+            </Text>
+
+            <View style={styles.miniGridRow}>
+              {/* Blinking Eyes */}
+              <View style={styles.miniCol}>
+                <Text style={[styles.miniLabel, { color: colors.muted }]}>Blinking Eyes</Text>
+                <BlinkingEyesMiniIllustration />
+              </View>
+
+              {/* DotMatrixCountdown */}
+              <View style={styles.miniCol}>
+                <Text style={[styles.miniLabel, { color: colors.muted }]}>Countdown</Text>
+                <DotMatrixCountdown seconds={5} dotSize={4} gap={2} label="HOLD" />
+              </View>
+
+              {/* Dot Ring */}
+              <View style={styles.miniCol}>
+                <Text style={[styles.miniLabel, { color: colors.muted }]}>Dot Ring (60%)</Text>
+                <DotRing holdProgress={0.6} />
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Check Pills */}
+            <CheckPills
+              checks={{
+                eyesOpen: { ok: true, heldMs: 5000, targetMs: 5000 },
+                upright: { ok: true },
+                liveness: { ok: false, challenge: { kind: 'blink', count: 2 } },
+                lighting: { ok: true, level: 'ok' },
+              }}
+            />
+
+            {/* Alertness Tick Strip */}
+            <AlertnessTick alertness={74} />
+          </View>
+        </View>
       </ScrollView>
 
       {/* Floating Bottom PillBar Preview */}
@@ -249,6 +396,73 @@ export default function ComponentGalleryScreen() {
         onSettingsPress={() => notify.info('Settings tapped')}
         timeRangeText="9:41 ... 10:00"
       />
+
+      {/* Live Wake Check Modal */}
+      <Modal
+        visible={wakeModalVisible}
+        animationType="slide"
+        onRequestClose={() => setWakeModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <LiveWakeCheck
+            key={selectedScenario}
+            engine={new FakeWakeCheckEngine(selectedScenario)}
+            targetHoldSeconds={5}
+            onComplete={() => {
+              notify.success('Wake check completed successfully');
+              setWakeModalVisible(false);
+            }}
+            onFallbackMath={() => {
+              notify.info('Switched to math fallback');
+              setWakeModalVisible(false);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Rationale Modal */}
+      <Modal
+        visible={rationaleModalVisible}
+        animationType="slide"
+        onRequestClose={() => setRationaleModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <CameraRationale
+            onContinue={() => setRationaleModalVisible(false)}
+            onFallbackMath={() => setRationaleModalVisible(false)}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Setup Guide Modal */}
+      <Modal
+        visible={setupGuideModalVisible}
+        animationType="slide"
+        onRequestClose={() => setSetupGuideModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <SetupGuide
+            faceFound={false}
+            onComplete={() => setSetupGuideModalVisible(false)}
+            onSkip={() => setSetupGuideModalVisible(false)}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Calibration Modal */}
+      <Modal
+        visible={calibrationModalVisible}
+        animationType="slide"
+        onRequestClose={() => setCalibrationModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <CalibrationModal
+            engine={new FakeWakeCheckEngine('happy-path')}
+            onComplete={() => setCalibrationModalVisible(false)}
+            onCancel={() => setCalibrationModalVisible(false)}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -316,5 +530,78 @@ const styles = StyleSheet.create({
   toastBtnText: {
     fontSize: typography.sizes.caption,
     fontWeight: 'bold',
+  },
+  scenarioChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  scenarioChip: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  scenarioChipText: {
+    fontSize: typography.sizes.caption,
+  },
+  primaryActionBtn: {
+    height: 52,
+    borderRadius: radii.pill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginVertical: spacing.xs,
+  },
+  primaryActionBtnText: {
+    fontSize: typography.sizes.body,
+  },
+  flowButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginVertical: spacing.xs,
+  },
+  flowSubBtn: {
+    flex: 1,
+    height: 40,
+    borderRadius: radii.pill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  flowSubBtnText: {
+    fontSize: typography.sizes.caption,
+  },
+  wakePreviewCard: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    padding: spacing.base,
+    gap: spacing.base,
+    marginTop: spacing.sm,
+  },
+  miniHeader: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.8,
+  },
+  miniGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  miniCol: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  miniLabel: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.3,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: 'rgba(128,128,128,0.15)',
   },
 });

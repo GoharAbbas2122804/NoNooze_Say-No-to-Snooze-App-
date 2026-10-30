@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Switch,
   Pressable,
+  Modal,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -29,6 +31,9 @@ import {
   Plus,
   FolderPlus,
   Camera,
+  Activity,
+  Database,
+  X,
 } from 'lucide-react-native';
 import { getAlarmScheduler } from '../services/alarm-scheduler';
 import { PermissionStatus } from '../services/alarm-scheduler/types';
@@ -41,6 +46,10 @@ import { RoundButton } from '../components/ui/RoundButton';
 import { notify } from '../ui/notify';
 import { APP_NAME } from '../constants/app';
 import * as Haptics from 'expo-haptics';
+import { WakeCheckSettings } from '../wake/screens/WakeCheckSettings';
+import { CameraRationale } from '../wake/screens/CameraRationale';
+import { SignalDebuggerOverlay } from '../wake/dev/SignalDebuggerOverlay';
+import { DataCollectorModal } from '../wake/dev/DataCollectorModal';
 
 export default function SettingsScreen() {
   const { colors, isDark, themeMode, setThemeMode } = useTheme();
@@ -70,6 +79,11 @@ export default function SettingsScreen() {
     camera: false,
   });
 
+  const [cameraRationaleVisible, setCameraRationaleVisible] = useState(false);
+  const [devToolsVisible, setDevToolsVisible] = useState(false);
+  const [debuggerVisible, setDebuggerVisible] = useState(false);
+  const [collectorVisible, setCollectorVisible] = useState(false);
+
   const checkStatus = useCallback(async () => {
     try {
       const s = await getAlarmScheduler().getPermissionStatus();
@@ -78,6 +92,41 @@ export default function SettingsScreen() {
       // Fallback
     }
   }, []);
+
+  const handleRequestCamera = () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (status.camera) {
+      notify.info('Camera permission is already granted');
+      return;
+    }
+    setCameraRationaleVisible(true);
+  };
+
+  const handleConfirmCameraRationale = async () => {
+    setCameraRationaleVisible(false);
+    try {
+      await getAlarmScheduler().requestPermissions();
+      const s = await getAlarmScheduler().getPermissionStatus();
+      if (!s.camera) {
+        notify.action('Camera permission denied', {
+          label: 'Settings',
+          onPress: () => {
+            Linking.openSettings().catch(() => {});
+          },
+        });
+      } else {
+        setStatus(s);
+        notify.success('Camera permission granted');
+      }
+    } catch {
+      notify.action('Camera settings needed', {
+        label: 'Settings',
+        onPress: () => {
+          Linking.openSettings().catch(() => {});
+        },
+      });
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -828,7 +877,12 @@ export default function SettingsScreen() {
         </View>
 
         {/* Camera Permission Card (Week 2 AI Challenges) */}
-        <View style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+        <TouchableOpacity
+          testID="camera-permission-row"
+          onPress={handleRequestCamera}
+          style={[styles.permissionCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
+          activeOpacity={0.8}
+        >
           <View style={styles.permissionIconCol}>
             <View style={[styles.permIconCircle, { backgroundColor: colors.surfaceAlt }]}>
               <Camera size={iconSizes.sm} color={status.camera ? colors.accentYellow : colors.muted} />
@@ -851,15 +905,18 @@ export default function SettingsScreen() {
                     { color: status.camera ? colors.success : colors.error, fontFamily: typography.fonts.bold },
                   ]}
                 >
-                  {status.camera ? 'GRANTED' : 'OPTIONAL (AI CHALLENGES)'}
+                  {status.camera ? 'GRANTED' : 'TAP TO ENABLE'}
                 </Text>
               </View>
             </View>
             <Text style={[styles.permissionDesc, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
-              Required for Week 2 face smile detection, pushup tracking, and room light scan challenges.
+              Required for Week 2 face wake check. Frames stay completely on device and are never stored.
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* Wake Check Settings Section */}
+        <WakeCheckSettings />
 
         {/* Developer Design System Gallery Link */}
         <View style={styles.sectionHeaderRow}>
@@ -884,7 +941,115 @@ export default function SettingsScreen() {
             </View>
           </View>
         </TouchableOpacity>
+
+        {/* App Version Footer with secret long-press trigger */}
+        <Pressable
+          testID="app-version-footer"
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+            setDevToolsVisible(true);
+            notify.info('Vision Dev Tools Unlocked');
+          }}
+          style={styles.versionFooter}
+        >
+          <Text style={[styles.versionText, { color: colors.muted, fontFamily: typography.fonts.regular }]}>
+            {APP_NAME} v1.0.0 (build 2026.10) · Long-press for dev tools
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      {/* Camera Rationale Modal */}
+      <Modal
+        visible={cameraRationaleVisible}
+        animationType="slide"
+        onRequestClose={() => setCameraRationaleVisible(false)}
+      >
+        <CameraRationale
+          onContinue={handleConfirmCameraRationale}
+          onFallbackMath={() => setCameraRationaleVisible(false)}
+        />
+      </Modal>
+
+      {/* Secret Dev Tools Selection Modal */}
+      <Modal
+        visible={devToolsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDevToolsVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.devToolsCard, { backgroundColor: colors.surface }]}>
+            <View style={styles.devToolsHeader}>
+              <Text style={[styles.modalTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                Vision Dev Tools
+              </Text>
+              <RoundButton
+                size={36}
+                variant="surfaceAlt"
+                onPress={() => setDevToolsVisible(false)}
+              >
+                <X size={16} color={colors.ink} />
+              </RoundButton>
+            </View>
+
+            <TouchableOpacity
+              testID="open-signal-debugger-btn"
+              onPress={() => {
+                setDevToolsVisible(false);
+                setDebuggerVisible(true);
+              }}
+              style={[styles.devToolOption, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Activity size={20} color={colors.accentYellow} />
+              <View style={styles.devToolTextCol}>
+                <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                  Signal Debugger & Model Comparison
+                </Text>
+                <Text style={[styles.rowDescription, { color: colors.muted }]}>
+                  Live sparklines for mlkit, ear, cnn, fused, yaw/pitch/roll, and latency.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="open-data-collector-btn"
+              onPress={() => {
+                setDevToolsVisible(false);
+                setCollectorVisible(true);
+              }}
+              style={[styles.devToolOption, { backgroundColor: colors.surfaceAlt }]}
+            >
+              <Database size={20} color={colors.accentYellow} />
+              <View style={styles.devToolTextCol}>
+                <Text style={[styles.rowTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
+                  Vision Dataset Collector UI
+                </Text>
+                <Text style={[styles.rowDescription, { color: colors.muted }]}>
+                  Label ground truth, record 10s sessions, and export eye crop datasets.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Signal Debugger Overlay Modal */}
+      <Modal
+        visible={debuggerVisible}
+        animationType="slide"
+        onRequestClose={() => setDebuggerVisible(false)}
+      >
+        <SignalDebuggerOverlay onClose={() => setDebuggerVisible(false)} />
+      </Modal>
+
+      {/* Data Collector Modal */}
+      <Modal
+        visible={collectorVisible}
+        animationType="slide"
+        onRequestClose={() => setCollectorVisible(false)}
+      >
+        <DataCollectorModal onClose={() => setCollectorVisible(false)} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1146,6 +1311,44 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   galleryNavTextGroup: {
+    flex: 1,
+  },
+  versionFooter: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    marginTop: spacing.md,
+  },
+  versionText: {
+    fontSize: typography.sizes.micro,
+    letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: spacing.base,
+  },
+  devToolsCard: {
+    borderRadius: radii.card,
+    padding: spacing.base,
+    gap: spacing.base,
+  },
+  devToolsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: typography.sizes.h3,
+  },
+  devToolOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.base,
+    padding: spacing.base,
+    borderRadius: radii.md,
+  },
+  devToolTextCol: {
     flex: 1,
   },
 });

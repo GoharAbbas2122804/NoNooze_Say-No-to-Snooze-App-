@@ -1,48 +1,72 @@
 import React from 'react';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { render, screen, act } from '@testing-library/react-native';
 import { FaceChallenge } from '../../src/components/challenges/FaceChallenge';
+import { FakeWakeCheckEngine } from '../../src/wake/fake/FakeWakeCheckEngine';
 import { Step } from '../../src/domain/types';
 
 describe('FaceChallenge Component', () => {
-  const step: Step = {
-    methodId: 'face',
-    target: 1,
-  };
-
-  it('renders face challenge instructions and camera HUD', async () => {
-    const onProgress = jest.fn();
-    const onComplete = jest.fn();
-
-    await render(
-      <FaceChallenge
-        step={step}
-        onProgress={onProgress}
-        onComplete={onComplete}
-      />
-    );
-
-    expect(screen.getByText('Facial Expression Wake Check')).toBeTruthy();
-    expect(screen.getByText(/Hold a wide morning smile/)).toBeTruthy();
-    expect(screen.getByTestId('face-confidence-text')).toBeTruthy();
-    expect(screen.getByTestId('verify-expression-btn')).toBeTruthy();
+  beforeEach(() => {
+    jest.useFakeTimers();
   });
 
-  it('starts verification when button pressed and updates confidence', async () => {
-    const user = userEvent.setup();
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const step: Step = {
+    methodId: 'face',
+    target: 5,
+  };
+
+  it('renders hero wake-check HUD elements', async () => {
+    const engine = new FakeWakeCheckEngine('happy-path');
     const onProgress = jest.fn();
     const onComplete = jest.fn();
 
     await render(
       <FaceChallenge
         step={step}
+        engine={engine}
         onProgress={onProgress}
         onComplete={onComplete}
       />
     );
 
-    await user.press(screen.getByTestId('verify-expression-btn'));
+    expect(screen.getByTestId('face-challenge-container')).toBeTruthy();
+    expect(screen.getByTestId('live-wake-check-screen')).toBeTruthy();
+    expect(screen.getByTestId('viewfinder-card')).toBeTruthy();
+    expect(screen.getByText('Show your')).toBeTruthy();
+    expect(screen.getByText('eyes')).toBeTruthy();
+    expect(screen.getByText('Eyes open')).toBeTruthy();
+    expect(screen.getByText('Alertness (estimate)')).toBeTruthy();
+  });
 
-    expect(screen.getByText('CONFIDENCE: 92%')).toBeTruthy();
-    expect(screen.getByTestId('face-hold-progress-text')).toBeTruthy();
+  it('progresses to success and calls onComplete on happy path', async () => {
+    const engine = new FakeWakeCheckEngine('happy-path');
+    const onProgress = jest.fn();
+    const onComplete = jest.fn();
+
+    await render(
+      <FaceChallenge
+        step={step}
+        engine={engine}
+        onProgress={onProgress}
+        onComplete={onComplete}
+      />
+    );
+
+    // Fast forward through verification, challenge, and success
+    await act(async () => {
+      jest.advanceTimersByTime(8000);
+    });
+
+    expect(screen.getByTestId('wake-success-view')).toBeTruthy();
+    expect(screen.getByText('Awake.')).toBeTruthy();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+    });
+
+    expect(onComplete).toHaveBeenCalled();
   });
 });

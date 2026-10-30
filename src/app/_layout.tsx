@@ -67,34 +67,42 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync().catch(() => {});
+      useAlarmStore.getState().rescheduleAll().catch(() => {});
     }
-    useAlarmStore.getState().rescheduleAll().catch(() => {});
 
-    // Route to ringing screen if launched by alarm notification
-    notifee
-      .getInitialNotification()
-      .then((initial) => {
-        const alarmId = initial?.notification?.data?.alarmId;
-        if (alarmId) {
+    // Route to ringing screen if launched by alarm notification.
+    // Wrapped in try/catch: notifee requires a dev/production build with the
+    // NotifeeApiModule native binary. It throws in Expo Go or a stale build.
+    let unsubscribe: () => void = () => {};
+    try {
+      notifee
+        .getInitialNotification()
+        .then((initial) => {
+          const alarmId = initial?.notification?.data?.alarmId;
+          if (alarmId) {
+            useAlarmStore.getState().setActiveAlarmId(String(alarmId));
+            router.replace({ pathname: '/ringing', params: { id: String(alarmId) } });
+          }
+        })
+        .catch(() => {});
+
+      // Listen to live / foreground notification events
+      unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+        const alarmId = detail.notification?.data?.alarmId;
+        if (
+          alarmId &&
+          (type === EventType.PRESS ||
+            type === EventType.ACTION_PRESS ||
+            type === EventType.DELIVERED)
+        ) {
           useAlarmStore.getState().setActiveAlarmId(String(alarmId));
           router.replace({ pathname: '/ringing', params: { id: String(alarmId) } });
         }
-      })
-      .catch(() => {});
-
-    // Listen to live / foreground notification events
-    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
-      const alarmId = detail.notification?.data?.alarmId;
-      if (
-        alarmId &&
-        (type === EventType.PRESS ||
-          type === EventType.ACTION_PRESS ||
-          type === EventType.DELIVERED)
-      ) {
-        useAlarmStore.getState().setActiveAlarmId(String(alarmId));
-        router.replace({ pathname: '/ringing', params: { id: String(alarmId) } });
-      }
-    });
+      });
+    } catch {
+      // NotifeeApiModule not available in this build (e.g. Expo Go).
+      // Notification routing is silently disabled until a dev/prod build is used.
+    }
 
     return () => {
       unsubscribe();
