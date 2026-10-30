@@ -52,7 +52,7 @@ npm test -- --coverage
   - `next-trigger.ts`: Exact next trigger calculation (one-time, repeating, week wrapping, midnight crossover, DST safe).
   - `step-runner.ts`: Pure state machine reducer (`idle -> running(stepIndex, progress) -> completed`).
   - `math-generator.ts`: Pure arithmetic problem generator with 3 difficulties, guaranteed integer answers, and division-by-zero protection.
-  - `dismissal-registry.ts`: Method registry (Math enabled; Pushups, Situps, Face marked "Coming Soon").
+  - `dismissal-registry.ts`: Method registry for math and active wake challenges, including the Android face check (ML Kit face/eye signals plus the local TFLite eye classifier).
 - **`src/store/alarm-store.ts`**: Zustand state management with `@react-native-async-storage/async-storage` persistence.
 - **`src/services/alarm-scheduler/`**: `AlarmScheduler` interface backed by native trigger notifications and foreground audio service. Includes `FakeAlarmScheduler` for headless CI/tests.
 - **`plugins/withLockScreen.js`**: Expo config plugin injecting `android:showWhenLocked="true"` and `android:turnScreenOn="true"` into `MainActivity` for Continuous Native Generation (CNG).

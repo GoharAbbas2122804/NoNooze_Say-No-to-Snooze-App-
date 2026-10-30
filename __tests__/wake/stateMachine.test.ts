@@ -46,6 +46,13 @@ describe('createWakeStateMachine', () => {
     expect(['searching', 'verifying']).toContain(state.phase);
   });
 
+  it('asks the user to reopen both eyes while verification is in progress', () => {
+    const sm = createWakeStateMachine(config, { clock });
+    const state = sm.handleFrame(makeFrameSignals({ t: fakeTime, eyesOpen: 0.1 }));
+    expect(state.phase).toBe('verifying');
+    expect(state.hint).toBe('eyes-closed');
+  });
+
   it('progresses verifying -> challenge -> success when eyes held open and challenge passed', () => {
     const sm = createWakeStateMachine(config, { clock });
 

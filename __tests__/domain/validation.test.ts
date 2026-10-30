@@ -63,13 +63,23 @@ describe('validateAlarm', () => {
     expect(highResult.errors).toContain('Situps target must be between 5 and 50 reps.');
   });
 
-  it('validates face check target: must be 1', () => {
-    const result = validateAlarm({
+  it('validates face check target: must be between 1 and 10 seconds', () => {
+    const lowResult = validateAlarm({
       ...validAlarm,
-      steps: [{ methodId: 'face', target: 2 }],
+      steps: [{ methodId: 'face', target: 0 }],
     });
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain('Face/wake-state check target must be 1.');
+    expect(lowResult.valid).toBe(false);
+    expect(lowResult.errors).toContain('Face/wake-state check target must be between 1 and 10 seconds.');
+
+    const highResult = validateAlarm({
+      ...validAlarm,
+      steps: [{ methodId: 'face', target: 11 }],
+    });
+    expect(highResult.valid).toBe(false);
+    expect(highResult.errors).toContain('Face/wake-state check target must be between 1 and 10 seconds.');
+
+    expect(validateAlarm({ ...validAlarm, steps: [{ methodId: 'face', target: 1 }] }).valid).toBe(true);
+    expect(validateAlarm({ ...validAlarm, steps: [{ methodId: 'face', target: 5 }] }).valid).toBe(true);
   });
 
   it('rejects invalid time formats', () => {

@@ -3,6 +3,7 @@ import { render, screen, act } from '@testing-library/react-native';
 import { FaceChallenge } from '../../src/components/challenges/FaceChallenge';
 import { FakeWakeCheckEngine } from '../../src/wake/fake/FakeWakeCheckEngine';
 import { Step } from '../../src/domain/types';
+import { DefaultWakeCheckEngine } from '../../src/wake/engine';
 
 describe('FaceChallenge Component', () => {
   beforeEach(() => {
@@ -39,6 +40,20 @@ describe('FaceChallenge Component', () => {
     expect(screen.getByText('eyes')).toBeTruthy();
     expect(screen.getByText('Eyes open')).toBeTruthy();
     expect(screen.getByText('Alertness (estimate)')).toBeTruthy();
+  });
+
+  it('keeps the eye verification open for at least five seconds', async () => {
+    const engine = new DefaultWakeCheckEngine();
+    await render(
+      <FaceChallenge
+        step={{ methodId: 'face', target: 1 }}
+        engine={engine}
+        onProgress={() => {}}
+        onComplete={() => {}}
+      />
+    );
+
+    expect(engine.getState().checks.eyesOpen.targetMs).toBe(5000);
   });
 
   it('progresses to success and calls onComplete on happy path', async () => {

@@ -48,6 +48,7 @@ export function createWakeStateMachine(
     if (signals.faceBox.w < 0.22 || signals.faceBox.h < 0.22) return 'move-closer';
     if (signals.faceBox.w > 0.85 || signals.faceBox.h > 0.85) return 'move-back';
     if (signals.upright < 0.5) return 'sit-up';
+    if (phase === 'verifying' && signals.eyesOpen < 0.6) return 'eyes-closed';
     if (phase === 'verifying' && (Math.abs(signals.yaw) > 18 || Math.abs(signals.pitch) > 18)) {
       return 'look-at-camera';
     }

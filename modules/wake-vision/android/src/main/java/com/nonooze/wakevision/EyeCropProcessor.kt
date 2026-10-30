@@ -3,89 +3,43 @@ package com.nonooze.wakevision
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.SystemClock
 import org.tensorflow.lite.Interpreter
-import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.channels.FileChannel
 
-class EyeCropProcessor(private val context: Context) {
-    private var interpreter: Interpreter? = null
-    private val inputBuffer: ByteBuffer = ByteBuffer.allocateDirect(1 * 48 * 48 * 1 * 4).apply {
-        order(ByteOrder.nativeOrder())
-    }
+class EyeCropProcessor(context: Context) {
+    private val inputBuffer = ByteBuffer.allocateDirect(48 * 48 * 4).order(ByteOrder.nativeOrder())
     private val outputArray = Array(1) { FloatArray(1) }
+    private val interpreter: Interpreter
 
     init {
-        loadModel()
-    }
-
-    private fun loadModel() {
-        try {
-            val assetFileDescriptor = context.assets.openFd("eye_cnn_v1.tflite")
-            val fileChannel = FileInputStream(assetFileDescriptor.fileDescriptor).channel
-            val startOffset = assetFileDescriptor.startOffset
-            val declaredLength = assetFileDescriptor.declaredLength
-            val modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-
-            val options = Interpreter.Options().apply {
-                setNumThreads(2)
-                setUseNNAPI(false)
-            }
-            interpreter = Interpreter(modelBuffer, options)
-        } catch (e: Exception) {
-            // Log fallback; in dev tests, interpreter will be initialized when assets are bundled
-            android.util.Log.w("WakeVision", "TFLite model not loaded from assets: ${e.message}")
+        val modelBytes = context.assets.open("eye_cnn_v1.tflite").use { it.readBytes() }
+        val model = ByteBuffer.allocateDirect(modelBytes.size).order(ByteOrder.nativeOrder()).apply {
+            put(modelBytes)
+            rewind()
         }
+        interpreter = Interpreter(model, Interpreter.Options().apply { setNumThreads(2) })
     }
 
-    /**
-     * Crops normalized eye bounding box [x, y, w, h] from full bitmap,
-     * converts to 48x48 grayscale [0..1], runs inference, and returns probability.
-     */
-    fun processCrop(bitmap: Bitmap, normX: Float, normY: Float, normW: Float, normH: Float): Pair<Float, Long> {
-        val startTime = SystemClock.elapsedRealtime()
-
-        val bmpWidth = bitmap.width
-        val bmpHeight = bitmap.height
-
-        val cropX = (normX * bmpWidth).toInt().coerceIn(0, bmpWidth - 1)
-        val cropY = (normY * bmpHeight).toInt().coerceIn(0, bmpHeight - 1)
-        val cropW = (normW * bmpWidth).toInt().coerceIn(1, bmpWidth - cropX)
-        val cropH = (normH * bmpHeight).toInt().coerceIn(1, bmpHeight - cropY)
-
-        val cropped = Bitmap.createBitmap(bitmap, cropX, cropY, cropW, cropH)
-        val scaled = Bitmap.createScaledBitmap(cropped, 48, 48, true)
+    fun processEye(bitmap: Bitmap, centerX: Float, centerY: Float, faceWidth: Float, faceHeight: Float): Float {
+        val cropWidth = (faceWidth * 0.18f).toInt().coerceAtLeast(1)
+        val cropHeight = (faceHeight * 0.14f).toInt().coerceAtLeast(1)
+        val left = (centerX - cropWidth / 2).toInt().coerceIn(0, bitmap.width - 1)
+        val top = (centerY - cropHeight / 2).toInt().coerceIn(0, bitmap.height - 1)
+        val width = cropWidth.coerceAtMost(bitmap.width - left)
+        val height = cropHeight.coerceAtMost(bitmap.height - top)
+        val scaled = Bitmap.createScaledBitmap(Bitmap.createBitmap(bitmap, left, top, width, height), 48, 48, true)
 
         inputBuffer.rewind()
         for (y in 0 until 48) {
             for (x in 0 until 48) {
                 val pixel = scaled.getPixel(x, y)
-                val r = Color.red(pixel)
-                val g = Color.green(pixel)
-                val b = Color.blue(pixel)
-                // Grayscale luminance formula: 0.299 R + 0.587 G + 0.114 B
-                val grayNorm = (0.299f * r + 0.587f * g + 0.114f * b) / 255.0f
-                inputBuffer.putFloat(grayNorm)
+                inputBuffer.putFloat((0.299f * Color.red(pixel) + 0.587f * Color.green(pixel) + 0.114f * Color.blue(pixel)) / 255f)
             }
         }
-
-        var probability = 0.5f
-        if (interpreter != null) {
-            interpreter?.run(inputBuffer, outputArray)
-            probability = outputArray[0][0].coerceIn(0.0f, 1.0f)
-        } else {
-            // Fallback estimation using central pixel intensity
-            probability = 0.85f
-        }
-
-        val elapsedMs = SystemClock.elapsedRealtime() - startTime
-        return Pair(probability, elapsedMs)
+        interpreter.run(inputBuffer, outputArray)
+        return outputArray[0][0].coerceIn(0f, 1f)
     }
 
-    fun close() {
-        interpreter?.close()
-        interpreter = null
-    }
+    fun close() = interpreter.close()
 }

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolateColor } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-worklets';
 import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { typography, radii } from '../../theme/tokens';
@@ -29,6 +31,7 @@ export function calculateWheelArcOffset(
   isLeftColumn = true,
   curvature = 4.5
 ): WheelArcResult {
+  'worklet';
   const absDelta = Math.abs(deltaIndex);
   const direction = isLeftColumn ? -1 : 1;
   const rawOffset = direction * Math.min(28, deltaIndex * deltaIndex * curvature * 0.4);
@@ -56,6 +59,38 @@ export interface WheelPickerColumnProps {
 const DEFAULT_ITEM_HEIGHT = 64;
 const VISIBLE_ITEMS = 5;
 
+function AnimatedWheelItem({ item, index, itemHeight, isLeftColumn, scrollOffset, colors, onPress }: {
+  item: string; index: number; itemHeight: number; isLeftColumn: boolean;
+  scrollOffset: { value: number }; colors: { ink: string; muted: string }; onPress: () => void;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const delta = index - scrollOffset.value / itemHeight;
+    const arc = calculateWheelArcOffset(delta, isLeftColumn);
+    return {
+      opacity: arc.opacity,
+      transform: [
+        { translateX: arc.xOffset },
+        { scale: arc.scale },
+        { perspective: 800 },
+        { rotateX: arc.rotateX },
+      ],
+    };
+  });
+  const animatedTextStyle = useAnimatedStyle(() => {
+    const distance = Math.min(2, Math.abs(index - scrollOffset.value / itemHeight));
+    return { color: interpolateColor(distance, [0, 1, 2], [colors.ink, colors.muted, colors.muted]) };
+  });
+  const isSelected = Math.round(scrollOffset.value / itemHeight) === index;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button"
+      accessibilityLabel={`${item}, ${isSelected ? 'selected' : 'option'}`}
+      style={[styles.itemRow, { height: itemHeight }, animatedStyle as any]}>
+      <Animated.Text style={[styles.itemText, animatedTextStyle,
+        { fontFamily: isSelected ? typography.fonts.bold : typography.fonts.light }]}>{item}</Animated.Text>
+    </Pressable>
+  );
+}
+
 export function WheelPickerColumn({
   items,
   selectedIndex,
@@ -70,25 +105,34 @@ export function WheelPickerColumn({
 }: WheelPickerColumnProps) {
   const { colors } = useTheme();
   const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-  const [localIndex, setLocalIndex] = useState(
-    Math.max(0, Math.min(selectedIndex, items.length - 1))
-  );
-
+  const scrollOffset = useSharedValue(selectedIndex * itemHeight);
+  const activeIndex = useSharedValue(selectedIndex);
   const isUserInteracting = useRef(false);
-  const lastHapticIndex = useRef(selectedIndex);
+  const isScrolling = useRef(false);
   const padCount = Math.floor(visibleCount / 2);
+  const fireTick = useCallback(() => { Haptics.selectionAsync().catch(() => {}); }, []);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollOffset.value = event.contentOffset.y;
+      const index = Math.max(0, Math.min(Math.round(event.contentOffset.y / itemHeight), items.length - 1));
+      if (index !== activeIndex.value) {
+        activeIndex.value = index;
+        runOnJS(fireTick)();
+      }
+    },
+  }, [itemHeight, items.length, fireTick]);
 
   // Sync scroll position when parent changes selectedIndex externally
   useEffect(() => {
     if (!isUserInteracting.current && selectedIndex >= 0 && selectedIndex < items.length) {
-      setLocalIndex(selectedIndex);
-      lastHapticIndex.current = selectedIndex;
+      activeIndex.value = selectedIndex;
+      scrollOffset.value = selectedIndex * itemHeight;
       scrollRef.current?.scrollTo({
         y: selectedIndex * itemHeight,
         animated: true,
       });
     }
-  }, [selectedIndex, itemHeight, items.length]);
+  }, [selectedIndex, itemHeight, items.length, activeIndex, scrollOffset]);
 
   // Initial layout positioning to ensure correct offset on Android & iOS
   const handleLayout = useCallback(() => {
@@ -100,23 +144,6 @@ export function WheelPickerColumn({
     }
   }, [selectedIndex, itemHeight, items.length]);
 
-  // Lightweight live scroll handler: fires clock tick haptic and live updates active index
-  const handleScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetY = e.nativeEvent.contentOffset.y;
-      const index = Math.round(offsetY / itemHeight);
-      const clamped = Math.max(0, Math.min(index, items.length - 1));
-
-      if (clamped !== lastHapticIndex.current) {
-        lastHapticIndex.current = clamped;
-        setLocalIndex(clamped);
-        onSelectIndex(clamped);
-        Haptics.selectionAsync().catch(() => {});
-      }
-    },
-    [itemHeight, items.length, onSelectIndex]
-  );
-
   // Settle & commit selection on momentum stop
   const handleScrollEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -124,8 +151,11 @@ export function WheelPickerColumn({
       const index = Math.round(offsetY / itemHeight);
       const clamped = Math.max(0, Math.min(index, items.length - 1));
 
-      setLocalIndex(clamped);
-      lastHapticIndex.current = clamped;
+      // Reanimated shared values are intentionally updated from this native event callback.
+      // eslint-disable-next-line react-hooks/immutability
+      activeIndex.value = clamped;
+      // eslint-disable-next-line react-hooks/immutability
+      scrollOffset.value = clamped * itemHeight;
       onSelectIndex(clamped);
 
       // Snap precisely to the slot if not already resting cleanly on it
@@ -138,17 +168,21 @@ export function WheelPickerColumn({
       }
 
       isUserInteracting.current = false;
+      isScrolling.current = false;
       onInteractionEnd?.();
     },
-    [itemHeight, items.length, onInteractionEnd, onSelectIndex]
+    [itemHeight, items.length, onInteractionEnd, onSelectIndex, activeIndex, scrollOffset]
   );
 
   // Tap an individual number directly
   const handleItemPress = useCallback(
     (index: number) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      setLocalIndex(index);
-      lastHapticIndex.current = index;
+      // Reanimated shared values drive the wheel visuals and are intentionally updated on selection.
+      // eslint-disable-next-line react-hooks/immutability
+      activeIndex.value = index;
+      // eslint-disable-next-line react-hooks/immutability
+      scrollOffset.value = index * itemHeight;
       onSelectIndex(index);
       scrollRef.current?.scrollTo({
         y: index * itemHeight,
@@ -156,20 +190,20 @@ export function WheelPickerColumn({
       });
       onInteractionEnd?.();
     },
-    [itemHeight, onInteractionEnd, onSelectIndex]
+    [itemHeight, onInteractionEnd, onSelectIndex, activeIndex, scrollOffset]
   );
 
   // Nudge step up (-1)
   const handleNudgeUp = useCallback(() => {
-    const next = Math.max(0, localIndex - 1);
+    const next = Math.max(0, activeIndex.value - 1);
     handleItemPress(next);
-  }, [localIndex, handleItemPress]);
+  }, [activeIndex, handleItemPress]);
 
   // Nudge step down (+1)
   const handleNudgeDown = useCallback(() => {
-    const next = Math.min(items.length - 1, localIndex + 1);
+    const next = Math.min(items.length - 1, activeIndex.value + 1);
     handleItemPress(next);
-  }, [items.length, localIndex, handleItemPress]);
+  }, [items.length, activeIndex, handleItemPress]);
 
   const height = visibleCount * itemHeight;
 
@@ -181,7 +215,8 @@ export function WheelPickerColumn({
         onInteractionStart?.();
       }}
       onTouchEnd={() => {
-        if (!isUserInteracting.current) {
+        if (!isScrolling.current) {
+          isUserInteracting.current = false;
           onInteractionEnd?.();
         }
       }}
@@ -232,7 +267,7 @@ export function WheelPickerColumn({
       </Pressable>
 
       {/* Native Scrollable Tumbler (Non-virtualized, zero nesting conflicts) */}
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         contentOffset={{ x: 0, y: Math.max(0, selectedIndex * itemHeight) }}
         onLayout={handleLayout}
@@ -241,8 +276,10 @@ export function WheelPickerColumn({
         decelerationRate="fast"
         snapToInterval={itemHeight}
         snapToAlignment="start"
+        disableIntervalMomentum
         onScrollBeginDrag={() => {
           isUserInteracting.current = true;
+          isScrolling.current = true;
           onInteractionStart?.();
         }}
         onScrollEndDrag={(e) => {
@@ -252,59 +289,19 @@ export function WheelPickerColumn({
         }}
         onMomentumScrollBegin={() => {
           isUserInteracting.current = true;
+          isScrolling.current = true;
           onInteractionStart?.();
         }}
         onMomentumScrollEnd={handleScrollEnd}
-        onScroll={handleScroll}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
         <View style={{ height: padCount * itemHeight }} pointerEvents="none" />
-        {items.map((item, index) => {
-          const delta = index - localIndex;
-          const { xOffset, scale, opacity, rotateX } = calculateWheelArcOffset(
-            delta,
-            isLeftColumn
-          );
-          const isSelected = index === localIndex;
-
-          return (
-            <Pressable
-              key={index}
-              onPress={() => handleItemPress(index)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item}, ${isSelected ? 'selected' : 'option'}`}
-              style={[
-                styles.itemRow,
-                {
-                  height: itemHeight,
-                  transform: [
-                    { translateX: xOffset },
-                    { scale },
-                    { perspective: 800 },
-                    { rotateX },
-                  ],
-                  opacity,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.itemText,
-                  {
-                    color: isSelected ? colors.ink : colors.muted,
-                    fontFamily: isSelected
-                      ? typography.fonts.bold
-                      : typography.fonts.light,
-                  },
-                ]}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {items.map((item, index) => <AnimatedWheelItem key={index} item={item} index={index}
+          itemHeight={itemHeight} isLeftColumn={isLeftColumn} scrollOffset={scrollOffset}
+          colors={colors} onPress={() => handleItemPress(index)} />)}
         <View style={{ height: padCount * itemHeight }} pointerEvents="none" />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Bottom subtle nudge trigger */}
       <Pressable

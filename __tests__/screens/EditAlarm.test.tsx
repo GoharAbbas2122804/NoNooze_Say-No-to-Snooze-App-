@@ -131,5 +131,36 @@ describe('EditAlarmScreen', () => {
     expect(screen.getByTestId('hours-display')).toHaveTextContent('08');
     expect(screen.getByTestId('minutes-display')).toHaveTextContent('10');
   });
+  it('allows toggling AM/PM via digital readout pill and wheel buttons', async () => {
+    const user = userEvent.setup();
+    useAlarmStore.setState({ timeFormat: '12h' });
+
+    await render(<EditAlarmScreen />);
+
+    expect(screen.getByTestId('digital-pill-ampm-btn')).toBeTruthy();
+    expect(screen.getByTestId('wheel-period-pm')).toBeTruthy();
+
+    // Toggle via digital pill button (AM -> PM)
+    await user.press(screen.getByTestId('digital-pill-ampm-btn'));
+    expect(screen.getByTestId('digital-pill-ampm-btn')).toHaveTextContent('PM');
+
+    // Switch back via wheel AM button
+    await user.press(screen.getByTestId('wheel-period-am'));
+    expect(screen.getByTestId('digital-pill-ampm-btn')).toHaveTextContent('AM');
+  });
+
+  it('allows switching between 12h and 24h format directly using the header toggle', async () => {
+    const user = userEvent.setup();
+    useAlarmStore.setState({ timeFormat: '12h' });
+
+    await render(<EditAlarmScreen />);
+
+    expect(screen.getByTestId('format-toggle-btn')).toHaveTextContent('12H');
+    expect(screen.getByTestId('period-am')).toBeTruthy();
+
+    // Toggle to 24h
+    await user.press(screen.getByTestId('format-toggle-btn'));
+    expect(useAlarmStore.getState().timeFormat).toBe('24h');
+  });
 });
 

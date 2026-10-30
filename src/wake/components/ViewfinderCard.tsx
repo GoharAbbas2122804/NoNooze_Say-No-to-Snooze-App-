@@ -7,7 +7,7 @@
  * - Fill-light white frame when lighting is dark
  */
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -17,12 +17,12 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../../theme/ThemeProvider';
-import { radii } from '../../theme/tokens';
+import { radii, typography } from '../../theme/tokens';
 import {
-  WakeCameraPreview,
   WakeCheckEngine,
   WakeCheckState,
 } from '../contract';
+import { WakeCameraPreview } from '../WakeCameraPreview';
 import { DotRing } from './DotRing';
 
 const CARD_HEIGHT = 340;
@@ -100,6 +100,27 @@ export function ViewfinderCard({ engine, state, fillLight }: ViewfinderCardProps
         pointerEvents="none"
       />
 
+      <View
+        testID="live-detection-status"
+        accessibilityLabel={faceFound ? `Face detected. Eyes ${state.signals?.eyesOpen !== undefined && state.signals.eyesOpen >= 0.55 ? 'open' : 'closed'}.` : 'Searching for face.'}
+        style={[styles.detectionBadge, { backgroundColor: colors.surface }]}
+        pointerEvents="none"
+      >
+        <Text style={[styles.detectionTitle, { color: faceFound ? colors.accentYellow : colors.muted }]}>
+          {faceFound ? 'FACE DETECTED' : 'SEARCHING FOR FACE'}
+        </Text>
+        {faceFound && state.signals && (
+          <Text testID="live-eye-prediction" style={[styles.detectionDetail, { color: colors.ink }]}>
+            EYES {state.signals.eyesOpen >= 0.55 ? 'OPEN' : 'CLOSED'} · {Math.round(state.signals.eyesOpen * 100)}%
+          </Text>
+        )}
+        {faceFound && state.signals && (
+          <Text style={[styles.modelDetail, { color: colors.muted }]}>
+            ML {Math.round((state.signals.source.mlkit ?? 0) * 100)}% · CNN {Math.round((state.signals.source.cnn ?? 0) * 100)}%
+          </Text>
+        )}
+      </View>
+
       {/* Dot ring around the face oval */}
       <View style={styles.ringContainer} pointerEvents="none">
         <DotRing
@@ -148,5 +169,29 @@ const styles = StyleSheet.create({
     width: OVAL_W,
     height: OVAL_H,
     borderRadius: OVAL_W / 2,
+  },
+  detectionBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    minWidth: 140,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  detectionTitle: {
+    fontSize: typography.sizes.micro,
+    fontFamily: typography.fonts.bold,
+    letterSpacing: 0.8,
+  },
+  detectionDetail: {
+    marginTop: 3,
+    fontSize: typography.sizes.caption,
+    fontFamily: typography.fonts.bold,
+  },
+  modelDetail: {
+    marginTop: 2,
+    fontSize: typography.sizes.micro,
+    fontFamily: typography.fonts.medium,
   },
 });

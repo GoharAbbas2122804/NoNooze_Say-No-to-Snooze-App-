@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle, AppState, AppStateStatus } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { DefaultWakeCheckEngine } from './engine';
-import { FrameSignals } from './contract';
-import { fuseEyeSignals } from './logic/fusion';
+import { Camera, useCameraDevice, useCameraPermission, useFrameOutput } from 'react-native-vision-camera';
+import { runOnJS } from 'react-native-worklets';
+import { useSharedValue } from 'react-native-reanimated';
+import { FrameSignals, WakeCheckEngine, WakeCheckState } from './contract';
 import { WakeVision } from '../../modules/wake-vision';
+import { createLiveFrameSignals, downsampleRgbToGray, encodeGrayFrame } from './liveSignals';
 
 export interface WakeCameraPreviewProps {
-  engine: DefaultWakeCheckEngine;
+  engine: WakeCheckEngine;
   style?: StyleProp<ViewStyle>;
   onFrame?: (signals: FrameSignals) => void;
 }
@@ -16,7 +17,52 @@ export const WakeCameraPreview: React.FC<WakeCameraPreviewProps> = ({ engine, st
   const { hasPermission, requestPermission } = useCameraPermission();
   const frontDevice = useCameraDevice('front');
   const [isActive, setIsActive] = useState<boolean>(true);
-  const lastProcessedTimeRef = useRef<number>(0);
+  const lastProcessedTimestamp = useSharedValue(0);
+
+  const reportError = useCallback((reason: WakeCheckState['failureReason']) => {
+    const report = (engine as WakeCheckEngine & { reportError?: (value: WakeCheckState['failureReason']) => void }).reportError;
+    report?.(reason);
+  }, [engine]);
+
+  const dispatchFrame = useCallback(async (gray: Uint8Array, width: number, height: number, orientation: string) => {
+    try {
+      if (!WakeVision.isAvailable()) throw new Error('Wake vision models are unavailable');
+      const encoded = encodeGrayFrame(gray);
+      const analysis = await WakeVision.analyzeGrayFrame(encoded, width, height, orientation);
+      const signals = createLiveFrameSignals(analysis, Date.now());
+      const feedFrame = (engine as WakeCheckEngine & { feedFrame?: (value: FrameSignals) => void }).feedFrame;
+      feedFrame?.(signals);
+      onFrame?.(signals);
+    } catch (error) {
+      console.warn('Wake vision frame analysis failed:', error);
+      reportError('model-error');
+    }
+  }, [engine, onFrame, reportError]);
+
+  const onFrameError = useCallback(() => reportError('model-error'), [reportError]);
+
+  const frameOutput = useFrameOutput({
+    targetResolution: { width: 320, height: 240 },
+    pixelFormat: 'rgb',
+    dropFramesWhileBusy: true,
+    onFrame(frame) {
+      'worklet';
+      try {
+        // The VisionCamera timestamp is in nanoseconds. Analyze at 5 fps to
+        // keep inference responsive without copying every preview frame.
+        if (frame.timestamp - lastProcessedTimestamp.value < 200_000_000) return;
+        lastProcessedTimestamp.value = frame.timestamp;
+        const bytesPerPixel = frame.pixelFormat === 'rgb-rgb-8-bit' ? 3 : 4;
+        const source = new Uint8Array(frame.getPixelBuffer());
+        const gray = downsampleRgbToGray(source, frame.width, frame.height, frame.bytesPerRow, bytesPerPixel);
+        runOnJS(dispatchFrame)(gray.pixels, gray.width, gray.height, frame.orientation);
+      } catch {
+        runOnJS(onFrameError)();
+      } finally {
+        frame.dispose();
+      }
+    },
+  });
 
   // AppState management: release camera when backgrounded
   useEffect(() => {
@@ -24,7 +70,7 @@ export const WakeCameraPreview: React.FC<WakeCameraPreviewProps> = ({ engine, st
       const active = nextAppState === 'active';
       setIsActive(active);
       if (!active) {
-        lastProcessedTimeRef.current = 0;
+        lastProcessedTimestamp.value = 0;
       }
     });
 
@@ -32,7 +78,7 @@ export const WakeCameraPreview: React.FC<WakeCameraPreviewProps> = ({ engine, st
       subscription.remove();
       setIsActive(false);
     };
-  }, []);
+  }, [lastProcessedTimestamp]);
 
   // Permission handling
   useEffect(() => {
@@ -40,85 +86,12 @@ export const WakeCameraPreview: React.FC<WakeCameraPreviewProps> = ({ engine, st
       if (!hasPermission) {
         const granted = await requestPermission();
         if (!granted) {
-          engine.reportError('permission-denied');
+          reportError('permission-denied');
         }
       }
     }
     checkPermission();
-  }, [hasPermission, requestPermission, engine]);
-
-  const handleFrameDispatch = useCallback(
-    async (rawSignals: Partial<FrameSignals>) => {
-      const now = Date.now();
-      // Throttle to 10-12 fps (at least 80 ms between analysis frames)
-      if (now - lastProcessedTimeRef.current < 85) {
-        return;
-      }
-      lastProcessedTimeRef.current = now;
-
-      // Model fusion
-      const mlkitProb = rawSignals.leftEyeOpen ?? 0.8;
-      const earVal = 0.28; // Extracted from contour landmarks
-      let cnnProb = 0.85;
-
-      try {
-        if (WakeVision.isAvailable()) {
-          const res = await WakeVision.cropAndClassify('', 0.2, 0.2, 0.6, 0.6);
-          cnnProb = res.probability;
-        }
-      } catch {
-        // Fallback to mlkit probability
-        cnnProb = mlkitProb;
-      }
-
-      const fusion = fuseEyeSignals({
-        mlkitProb,
-        earValue: earVal,
-        cnnProb,
-      });
-
-      const signals: FrameSignals = {
-        t: now,
-        faceFound: rawSignals.faceFound ?? true,
-        leftEyeOpen: rawSignals.leftEyeOpen ?? fusion.eyesOpen,
-        rightEyeOpen: rawSignals.rightEyeOpen ?? fusion.eyesOpen,
-        eyesOpen: fusion.eyesOpen,
-        yaw: rawSignals.yaw ?? 0,
-        pitch: rawSignals.pitch ?? 0,
-        roll: rawSignals.roll ?? 0,
-        upright: rawSignals.upright ?? 1.0,
-        brightness: rawSignals.brightness ?? 0.7,
-        faceBox: rawSignals.faceBox ?? { x: 0.25, y: 0.2, w: 0.5, h: 0.5 },
-        latencyMs: rawSignals.latencyMs ?? 15,
-        source: fusion.source,
-      };
-
-      engine.feedFrame(signals);
-      if (onFrame) {
-        onFrame(signals);
-      }
-    },
-    [engine, onFrame]
-  );
-
-  // When active, dispatch frame analysis tick (10-12 fps)
-  useEffect(() => {
-    if (!isActive) return;
-    const interval = setInterval(() => {
-      handleFrameDispatch({
-        faceFound: true,
-        leftEyeOpen: 0.9,
-        rightEyeOpen: 0.9,
-        yaw: 0,
-        pitch: 0,
-        roll: 0,
-        upright: 1.0,
-        brightness: 0.8,
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isActive, handleFrameDispatch]);
+  }, [hasPermission, requestPermission, reportError]);
 
   if (!hasPermission || !frontDevice) {
     return (
@@ -133,10 +106,11 @@ export const WakeCameraPreview: React.FC<WakeCameraPreviewProps> = ({ engine, st
       <Camera
         style={styles.viewfinderBackdrop}
         device={frontDevice}
-        isActive={isActive}
+        isActive={isActive && hasPermission}
+        outputs={[frameOutput]}
         onError={(error) => {
           console.warn('VisionCamera error:', error);
-          engine.reportError('camera-error');
+          reportError('camera-error');
         }}
       />
     </View>

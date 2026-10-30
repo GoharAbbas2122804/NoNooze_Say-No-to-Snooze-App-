@@ -74,7 +74,10 @@ export default function ChallengesTabScreen() {
 
   const handleCreateAlarmWithChallenge = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    router.push('/edit');
+    router.push({
+      pathname: '/edit',
+      params: { challenge: selectedMethod },
+    });
   };
 
   return (

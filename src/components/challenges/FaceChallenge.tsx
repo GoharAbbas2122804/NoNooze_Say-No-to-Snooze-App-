@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Step } from '../../domain/types';
 import { LiveWakeCheck } from '../../wake/screens/LiveWakeCheck';
 import { WakeCheckEngine } from '../../wake/contract';
+import { DefaultWakeCheckEngine } from '../../wake/engine';
 
 export interface FaceChallengeProps {
   step: Step;
@@ -16,10 +17,11 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
   step,
   onProgress,
   onComplete,
-  engine,
+  engine: customEngine,
   onFallbackMath,
 }) => {
-  const holdSeconds = typeof step.target === 'number' && step.target >= 3 ? step.target : 5;
+  const holdSeconds = Math.max(5, typeof step.target === 'number' ? step.target : 5);
+  const [engine] = useState(() => customEngine || new DefaultWakeCheckEngine());
 
   return (
     <View style={styles.container} testID="face-challenge-container">

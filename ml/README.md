@@ -2,6 +2,8 @@
 
 This module hosts the training, evaluation, and edge deployment pipeline for the NoNooze ocular alertness engine. It targets high-accuracy, low-latency (<5ms on device, <100k parameters) eye-state verification for smart alarms.
 
+**Current validation status:** `ml/mock_data` contains synthetic fixtures, not evaluation-grade eye data. The checked-in TFLite artifact has passed a format and inference smoke check, but it has no verified open/closed accuracy, false-open rate, device latency, or Keras checkpoint parity. See [`results.md`](./results.md) before treating this model as production-ready. The Android challenge uses ML Kit eye-open probabilities to decide the eye hold. It displays TFLite scores for diagnostics and does not let this unvalidated model decide whether to dismiss the alarm.
+
 ---
 
 ## 1. Datasets & Domain Gap
@@ -50,7 +52,7 @@ A pytest test (`ml/tests/test_dataset.py`) automatically fails the build if any 
 | Model | Architecture | Parameters | Target TFLite Size | Expected Latency | Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **M0** | ML Kit Prob + EAR Rule | N/A | N/A | 12-18 ms | Heuristic baseline |
-| **M1** | 4-Block Conv2D + BN + GAP (From Scratch) | ~68,400 | ~140 KB (FP16) / ~75 KB (INT8) | ~3.2 ms | **Production Model** |
+| **M1** | 4-Block Conv2D + BN + GAP (From Scratch) | ~68,400 | ~140 KB (FP16) / ~75 KB (INT8) | <5 ms target | **Architecture target; current artifact unvalidated** |
 | **M2** | MobileNetV2-0.35 Transfer | ~410,000 | ~850 KB (FP16) | ~8.5 ms | Transfer baseline |
 | **M3** | Depthwise-Separable Conv Variant | ~24,100 | ~60 KB (INT8) | ~2.1 ms | Ultra-low power |
 

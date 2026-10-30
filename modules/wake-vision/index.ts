@@ -1,4 +1,5 @@
 import { requireNativeModule } from 'expo-modules-core';
+import type { FaceAnalysis } from '../../src/wake/liveSignals';
 
 export interface CropResult {
   probability: number;
@@ -8,6 +9,7 @@ export interface CropResult {
 
 export interface WakeVisionInterface {
   isAvailable(): boolean;
+  analyzeGrayFrame(base64Data: string, width: number, height: number, orientation: string): Promise<FaceAnalysis>;
   cropAndClassify(
     base64Data: string,
     normX: number,
@@ -28,6 +30,12 @@ export const WakeVision: WakeVisionInterface = {
   isAvailable(): boolean {
     return nativeModule ? nativeModule.isAvailable() : false;
   },
+  async analyzeGrayFrame(base64Data, width, height, orientation) {
+    if (!nativeModule || !nativeModule.isAvailable()) {
+      throw new Error('Native face and eye models are unavailable');
+    }
+    return nativeModule.analyzeGrayFrame(base64Data, width, height, orientation);
+  },
   async cropAndClassify(
     base64Data: string,
     normX: number,
@@ -38,10 +46,6 @@ export const WakeVision: WakeVisionInterface = {
     if (nativeModule) {
       return nativeModule.cropAndClassify(base64Data, normX, normY, normW, normH);
     }
-    // Fallback in simulation / testing environments
-    return {
-      probability: 0.88,
-      latencyMs: 3,
-    };
+    throw new Error('Native eye model is unavailable');
   },
 };

@@ -6,19 +6,22 @@ globalThis.__workletsModuleProxy = {
 
 jest.mock('react-native-worklets', () => ({
   createWorklet: (fn) => fn,
+  runOnJS: (fn) => fn,
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const { View, Text } = require('react-native');
+  const { View, Text, ScrollView } = require('react-native');
   return {
     __esModule: true,
     default: {
       View,
       Text,
+      ScrollView,
       createAnimatedComponent: (c) => c,
     },
     useSharedValue: (initial) => ({ value: initial }),
     useAnimatedStyle: (fn) => fn(),
+    useAnimatedScrollHandler: (handlers) => (event) => handlers.onScroll?.(event.nativeEvent ?? event),
     useReducedMotion: () => false,
     interpolateColor: (val, input, output) => output?.[0] || '#000000',
     withTiming: (toValue) => toValue,
@@ -152,4 +155,31 @@ jest.mock('expo-audio', () => ({
     duration: 30,
   })),
   setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock react-native-vision-camera
+jest.mock('react-native-vision-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    Camera: (props) => React.createElement(View, { testID: 'vision-camera', ...props }),
+    useCameraDevice: () => ({ id: 'front-camera', position: 'front' }),
+    useCameraPermission: () => ({
+      hasPermission: true,
+      requestPermission: jest.fn().mockResolvedValue(true),
+    }),
+    useFrameOutput: jest.fn(() => ({})),
+  };
+});
+
+// Mock modules/wake-vision
+jest.mock('./modules/wake-vision', () => ({
+  WakeVision: {
+    isAvailable: () => true,
+    analyzeGrayFrame: jest.fn().mockResolvedValue({ faceFound: false, brightness: 0.5, latencyMs: 5 }),
+    cropAndClassify: jest.fn().mockResolvedValue({
+      probability: 0.88,
+      latencyMs: 3,
+    }),
+  },
 }));

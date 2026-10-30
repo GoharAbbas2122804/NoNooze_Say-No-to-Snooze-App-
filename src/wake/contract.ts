@@ -2,7 +2,7 @@ import React, { useSyncExternalStore } from 'react';
 import { View, StyleProp, ViewStyle } from 'react-native';
 
 export type WakePhase = 'idle'|'permission'|'setup'|'calibrating'|'searching'|'verifying'|'challenge'|'success'|'failed'|'fallback';
-export type Hint = 'no-face'|'too-dark'|'too-bright'|'move-closer'|'move-back'|'look-at-camera'|'sit-up'|'hold-still';
+export type Hint = 'no-face'|'too-dark'|'too-bright'|'move-closer'|'move-back'|'look-at-camera'|'sit-up'|'hold-still'|'eyes-closed';
 export type LivenessChallenge = { kind:'blink'; count:number } | { kind:'turn'; direction:'left'|'right' } | { kind:'look-up' };
 export interface FrameSignals {
   t:number; faceFound:boolean;

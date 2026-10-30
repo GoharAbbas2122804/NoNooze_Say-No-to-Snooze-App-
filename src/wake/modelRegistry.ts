@@ -13,7 +13,7 @@ export const MODEL_REGISTRY: Record<string, ModelDescriptor> = {
     id: 'eye_cnn_v1',
     name: 'NoNooze Eye State CNN',
     version: '1.0.0',
-    sha256: '0c6b328721a91902f7d33a2758f1c8dad9d5a6917fb54bddf03b7fcfa6ee8387',
+    sha256: '9e032dd1d0ff1a075b803983f4cc8fc8062b9734a8baa0bd423b2278665fad64',
     path: 'assets/models/eye_cnn_v1.tflite',
     inputShape: [48, 48, 1],
     quantization: 'float16',

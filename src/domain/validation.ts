@@ -20,8 +20,8 @@ export function validateStep(step: Step): string | null {
       }
       break;
     case 'face':
-      if (step.target !== 1) {
-        return 'Face/wake-state check target must be 1.';
+      if (step.target < 1 || step.target > 10) {
+        return 'Face/wake-state check target must be between 1 and 10 seconds.';
       }
       break;
     case 'environment':

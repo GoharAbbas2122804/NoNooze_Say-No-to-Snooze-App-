@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ import * as Haptics from 'expo-haptics';
 
 export default function EditAlarmScreen() {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, challenge } = useLocalSearchParams<{ id?: string; challenge?: MethodId }>();
   const isEditing = Boolean(id);
 
   const existingAlarm = useAlarmStore((state) =>
@@ -51,6 +51,7 @@ export default function EditAlarmScreen() {
   );
 
   const timeFormat = useAlarmStore((state) => state.timeFormat);
+  const setTimeFormat = useAlarmStore((state) => state.setTimeFormat);
   const defaultStoreSound = useAlarmStore((state) => state.defaultSound);
   const customSounds = useAlarmStore((state) => state.customSounds || []);
   const addCustomSound = useAlarmStore((state) => state.addCustomSound);
@@ -77,11 +78,23 @@ export default function EditAlarmScreen() {
   const [minutes, setMinutes] = useState(initialTimeParts.minutes);
   const [ampm, setAmpm] = useState<'AM' | 'PM'>(initialTimeParts.ampm);
 
+  useEffect(() => {
+    setHours(initialTimeParts.hours);
+    setMinutes(initialTimeParts.minutes);
+    setAmpm(initialTimeParts.ampm);
+  }, [initialTimeParts]);
+
   const [days, setDays] = useState<DayOfWeek[]>(existingAlarm?.days || []);
   const [label, setLabel] = useState(existingAlarm?.label || '');
-  const [steps, setSteps] = useState<Step[]>(
-    existingAlarm?.steps || [{ methodId: 'math', target: 3 }]
-  );
+  const [steps, setSteps] = useState<Step[]>(() => {
+    if (existingAlarm?.steps && existingAlarm.steps.length > 0) {
+      return existingAlarm.steps;
+    }
+    if (challenge && DISMISSAL_METHODS[challenge]) {
+      return [{ methodId: challenge, target: DISMISSAL_METHODS[challenge].defaultTarget || 1 }];
+    }
+    return [{ methodId: 'math', target: 3 }];
+  });
   const [soundName, setSoundName] = useState(
     existingAlarm?.sound || defaultStoreSound || 'Melodian'
   );
@@ -316,13 +329,40 @@ export default function EditAlarmScreen() {
           <Text style={[styles.screenTitle, { color: colors.ink, fontFamily: typography.fonts.bold }]}>
             {isEditing ? 'Edit Alarm' : 'Set Alarm Time'}
           </Text>
-          {isEditing ? (
-            <Pressable testID="delete-alarm-button" onPress={handleDelete}>
-              <Text style={[styles.deleteText, { color: colors.error, fontFamily: typography.fonts.bold }]}>
-                Delete
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Pressable
+              testID="format-toggle-btn"
+              accessibilityRole="button"
+              accessibilityLabel={`Switch to ${timeFormat === '12h' ? '24-hour' : '12-hour'} format`}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setTimeFormat(timeFormat === '12h' ? '24h' : '12h');
+              }}
+              style={[
+                styles.formatTogglePill,
+                {
+                  backgroundColor: colors.surfaceAlt,
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.formatToggleText,
+                  { color: colors.accentYellow, fontFamily: typography.fonts.bold },
+                ]}
+              >
+                {timeFormat.toUpperCase()}
               </Text>
             </Pressable>
-          ) : null}
+            {isEditing ? (
+              <Pressable testID="delete-alarm-button" onPress={handleDelete}>
+                <Text style={[styles.deleteText, { color: colors.error, fontFamily: typography.fonts.bold }]}>
+                  Delete
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {/* 12h AM / PM Toggle Row */}
@@ -399,9 +439,28 @@ export default function EditAlarmScreen() {
             {minutes}
           </Text>
           {timeFormat === '12h' && (
-            <Text style={[styles.digitalPillAmpm, { color: colors.muted, fontFamily: typography.fonts.bold }]}>
-              {ampm}
-            </Text>
+            <Pressable
+              testID="digital-pill-ampm-btn"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setAmpm((prev) => (prev === 'AM' ? 'PM' : 'AM'));
+              }}
+              style={styles.digitalPillAmpmTouch}
+              accessibilityRole="button"
+              accessibilityLabel={`Current period is ${ampm}. Tap to switch to ${ampm === 'AM' ? 'PM' : 'AM'}`}
+            >
+              <Text
+                style={[
+                  styles.digitalPillAmpm,
+                  {
+                    color: colors.accentYellow,
+                    fontFamily: typography.fonts.bold,
+                  },
+                ]}
+              >
+                {ampm}
+              </Text>
+            </Pressable>
           )}
         </View>
 
@@ -437,9 +496,6 @@ export default function EditAlarmScreen() {
         {/* Dual Curved Lens Wheel Pickers (Clockwise Swiping, Non-Blocking) */}
         <View
           style={styles.wheelWrapper}
-          onTouchStart={() => setPageScrollEnabled(false)}
-          onTouchEnd={() => setPageScrollEnabled(true)}
-          onTouchCancel={() => setPageScrollEnabled(true)}
         >
           <WheelPickerColumn
             testID="hours-wheel-picker"
@@ -461,6 +517,66 @@ export default function EditAlarmScreen() {
             onInteractionStart={() => setPageScrollEnabled(false)}
             onInteractionEnd={() => setPageScrollEnabled(true)}
           />
+          {timeFormat === '12h' && (
+            <View style={styles.wheelAmPmCol}>
+              <Pressable
+                testID="wheel-period-am"
+                accessibilityRole="button"
+                accessibilityLabel="Select AM"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setAmpm('AM');
+                }}
+                style={[
+                  styles.wheelAmPmBtn,
+                  {
+                    backgroundColor: ampm === 'AM' ? colors.accentYellow : colors.surface,
+                    borderColor: ampm === 'AM' ? colors.accentYellow : colors.borderSubtle,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.wheelAmPmText,
+                    {
+                      color: ampm === 'AM' ? '#0D0D0D' : colors.muted,
+                      fontFamily: ampm === 'AM' ? typography.fonts.bold : typography.fonts.medium,
+                    },
+                  ]}
+                >
+                  AM
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="wheel-period-pm"
+                accessibilityRole="button"
+                accessibilityLabel="Select PM"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setAmpm('PM');
+                }}
+                style={[
+                  styles.wheelAmPmBtn,
+                  {
+                    backgroundColor: ampm === 'PM' ? colors.accentYellow : colors.surface,
+                    borderColor: ampm === 'PM' ? colors.accentYellow : colors.borderSubtle,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.wheelAmPmText,
+                    {
+                      color: ampm === 'PM' ? '#0D0D0D' : colors.muted,
+                      fontFamily: ampm === 'PM' ? typography.fonts.bold : typography.fonts.medium,
+                    },
+                  ]}
+                >
+                  PM
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* Alarm Label Input */}
@@ -968,6 +1084,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.h2,
     letterSpacing: -0.6,
   },
+  formatTogglePill: {
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatToggleText: {
+    fontSize: typography.sizes.micro + 1,
+    letterSpacing: 0.8,
+  },
   deleteText: {
     fontSize: typography.sizes.bodySmall,
   },
@@ -1005,9 +1133,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginHorizontal: 4,
   },
+  digitalPillAmpmTouch: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
   digitalPillAmpm: {
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 15,
+    marginLeft: 6,
   },
   quickAdjustRow: {
     flexDirection: 'row',
@@ -1030,7 +1163,23 @@ const styles = StyleSheet.create({
   wheelWrapper: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  wheelAmPmCol: {
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginLeft: spacing.sm,
+  },
+  wheelAmPmBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelAmPmText: {
+    fontSize: typography.sizes.caption,
   },
   inputCard: {
     borderRadius: radii.card,

@@ -25,6 +25,7 @@ const HINT_MESSAGES: Record<Hint, string> = {
   'look-at-camera': 'Look at the camera',
   'sit-up': 'Sit up a little',
   'hold-still': 'Hold still',
+  'eyes-closed': 'Open both eyes and look at the camera',
 };
 
 interface HintTextProps {

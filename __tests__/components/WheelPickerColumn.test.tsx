@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { render, screen, userEvent, fireEvent } from '@testing-library/react-native';
 import { WheelPickerColumn } from '../../src/components/alarm/WheelPicker';
 
 describe('WheelPickerColumn', () => {
@@ -71,6 +71,28 @@ describe('WheelPickerColumn', () => {
     );
 
     expect(screen.getByText('HOURS')).toBeTruthy();
+  });
+
+  it('releases the parent scroll lock after a touch that does not start scrolling', async () => {
+    const onInteractionStart = jest.fn();
+    const onInteractionEnd = jest.fn();
+    await render(
+      <WheelPickerColumn
+        testID="test-wheel"
+        items={items}
+        selectedIndex={2}
+        onSelectIndex={jest.fn()}
+        onInteractionStart={onInteractionStart}
+        onInteractionEnd={onInteractionEnd}
+      />
+    );
+
+    const wheel = screen.getByTestId('test-wheel');
+    fireEvent(wheel, 'touchStart');
+    fireEvent(wheel, 'touchEnd');
+
+    expect(onInteractionStart).toHaveBeenCalled();
+    expect(onInteractionEnd).toHaveBeenCalled();
   });
 });
 

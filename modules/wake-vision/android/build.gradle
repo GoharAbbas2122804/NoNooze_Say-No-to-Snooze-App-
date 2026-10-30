@@ -33,8 +33,12 @@ dependencies {
     implementation project(':expo-modules-core')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
-    // TensorFlow Lite Android Runtime (Interpreter)
-    implementation 'org.tensorflow:tensorflow-lite:2.14.0'
+    // 2.14.0's transitive tensorflow-lite-api AAR shares namespace
+    // org.tensorflow.lite, which AGP 8+/9 rejects at app manifest merge.
+    // 2.16.1 gives the -api artifact its own namespace; Interpreter API is unchanged.
+    implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+    implementation 'com.google.mlkit:face-detection:16.1.7'
+    implementation 'com.google.android.gms:play-services-tasks:18.2.0'
 
     // AndroidX & Graphics
     implementation 'androidx.core:core-ktx:1.12.0'
