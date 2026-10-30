@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 class WakeVisionModule : Module() {
     private var processor: EyeCropProcessor? = null
     private var detector: FaceDetector? = null
+    private var initializationError: String? = null
 
     override fun definition() = ModuleDefinition {
         Name("WakeVision")
@@ -29,6 +30,7 @@ class WakeVisionModule : Module() {
             try {
                 processor = EyeCropProcessor(ctx)
             } catch (error: Exception) {
+                initializationError = "Eye model initialization failed: ${error.message ?: error.javaClass.simpleName}"
                 Log.e("WakeVision", "Eye model initialization failed", error)
             }
             try {
@@ -41,6 +43,7 @@ class WakeVisionModule : Module() {
                         .build()
                 )
             } catch (error: Exception) {
+                initializationError = "Face detector initialization failed: ${error.message ?: error.javaClass.simpleName}"
                 Log.e("WakeVision", "Face detector initialization failed", error)
             }
         }
@@ -53,7 +56,11 @@ class WakeVisionModule : Module() {
         }
 
         Function("isAvailable") {
-            return@Function detector != null
+            return@Function detector != null && processor != null
+        }
+
+        Function("getInitializationError") {
+            return@Function initializationError
         }
 
         AsyncFunction("analyzeGrayFrame") { base64: String, width: Int, height: Int, orientation: String ->

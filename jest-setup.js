@@ -10,6 +10,7 @@ jest.mock('react-native-worklets', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
+  const React = require('react');
   const { View, Text, ScrollView } = require('react-native');
   return {
     __esModule: true,
@@ -19,7 +20,7 @@ jest.mock('react-native-reanimated', () => {
       ScrollView,
       createAnimatedComponent: (c) => c,
     },
-    useSharedValue: (initial) => ({ value: initial }),
+    useSharedValue: (initial) => React.useRef({ value: initial }).current,
     useAnimatedStyle: (fn) => fn(),
     useAnimatedScrollHandler: (handlers) => (event) => handlers.onScroll?.(event.nativeEvent ?? event),
     useReducedMotion: () => false,
@@ -168,7 +169,7 @@ jest.mock('react-native-vision-camera', () => {
       hasPermission: true,
       requestPermission: jest.fn().mockResolvedValue(true),
     }),
-    useFrameOutput: jest.fn(() => ({})),
+    useFrameOutput: jest.fn((options) => options),
   };
 });
 
@@ -176,6 +177,7 @@ jest.mock('react-native-vision-camera', () => {
 jest.mock('./modules/wake-vision', () => ({
   WakeVision: {
     isAvailable: () => true,
+    getInitializationError: () => null,
     analyzeGrayFrame: jest.fn().mockResolvedValue({ faceFound: false, brightness: 0.5, latencyMs: 5 }),
     cropAndClassify: jest.fn().mockResolvedValue({
       probability: 0.88,

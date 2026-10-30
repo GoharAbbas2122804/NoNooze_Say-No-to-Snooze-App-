@@ -9,6 +9,7 @@ export interface CropResult {
 
 export interface WakeVisionInterface {
   isAvailable(): boolean;
+  getInitializationError(): string | null;
   analyzeGrayFrame(base64Data: string, width: number, height: number, orientation: string): Promise<FaceAnalysis>;
   cropAndClassify(
     base64Data: string,
@@ -20,15 +21,20 @@ export interface WakeVisionInterface {
 }
 
 let nativeModule: WakeVisionInterface | null = null;
+let nativeModuleLoadError: string | null = null;
 try {
   nativeModule = requireNativeModule<WakeVisionInterface>('WakeVision');
-} catch {
+} catch (error) {
   nativeModule = null;
+  nativeModuleLoadError = error instanceof Error ? error.message : String(error);
 }
 
 export const WakeVision: WakeVisionInterface = {
   isAvailable(): boolean {
     return nativeModule ? nativeModule.isAvailable() : false;
+  },
+  getInitializationError(): string | null {
+    return nativeModule ? nativeModule.getInitializationError() : nativeModuleLoadError;
   },
   async analyzeGrayFrame(base64Data, width, height, orientation) {
     if (!nativeModule || !nativeModule.isAvailable()) {
