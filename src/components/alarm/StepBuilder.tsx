@@ -20,13 +20,11 @@ import { BlinkingEyesMiniIllustration } from './BlinkingEyesMiniIllustration';
 interface StepBuilderProps {
   steps: Step[];
   onChange: (steps: Step[]) => void;
-  alarmTime?: string;
 }
 
 export const StepBuilder: React.FC<StepBuilderProps> = ({
   steps,
   onChange,
-  alarmTime: _alarmTime = '10:30',
 }) => {
   const { colors } = useTheme();
   const [pickerVisible, setPickerVisible] = useState(false);

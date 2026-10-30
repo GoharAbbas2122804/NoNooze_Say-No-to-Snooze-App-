@@ -41,7 +41,7 @@ export const DISMISSAL_METHODS: Record<MethodId, DismissMethod> = {
     title: 'Face Wake Check',
     description: 'Computer vision verifies eye alertness and cognitive wakefulness.',
     defaultTarget: 5,
-    minTarget: 3,
+    minTarget: 5,
     maxTarget: 10,
     unit: 'seconds',
     available: true,

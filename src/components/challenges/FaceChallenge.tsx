@@ -15,7 +15,6 @@ export interface FaceChallengeProps {
 
 export const FaceChallenge: React.FC<FaceChallengeProps> = ({
   step,
-  onProgress,
   onComplete,
   engine: customEngine,
   onFallbackMath,
@@ -29,8 +28,6 @@ export const FaceChallenge: React.FC<FaceChallengeProps> = ({
         engine={engine}
         targetHoldSeconds={holdSeconds}
         livenessEnabled={false}
-        // The face check reports frame progress continuously; only completion advances a step.
-        onProgress={() => {}}
         onComplete={onComplete}
         onFallbackMath={onFallbackMath}
       />

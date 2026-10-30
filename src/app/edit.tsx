@@ -82,7 +82,9 @@ export default function EditAlarmScreen() {
   const [label, setLabel] = useState(existingAlarm?.label || '');
   const [steps, setSteps] = useState<Step[]>(() => {
     if (existingAlarm?.steps && existingAlarm.steps.length > 0) {
-      return existingAlarm.steps;
+      return existingAlarm.steps.map((step) =>
+        step.methodId === 'face' ? { ...step, target: Math.max(5, step.target) } : step
+      );
     }
     if (challenge && DISMISSAL_METHODS[challenge]) {
       return [{ methodId: challenge, target: DISMISSAL_METHODS[challenge].defaultTarget || 1 }];
@@ -674,7 +676,7 @@ export default function EditAlarmScreen() {
           </View>
         </View>
 
-        <StepBuilder steps={steps} onChange={setSteps} alarmTime={`${hours}:${minutes}`} />
+        <StepBuilder steps={steps} onChange={setSteps} />
 
         {/* Sound selector */}
         <View style={styles.optionsTilesRow}>
@@ -682,7 +684,7 @@ export default function EditAlarmScreen() {
           <Pressable
             testID="sound-select-btn"
             onPress={() => setSoundModalVisible(true)}
-            style={[styles.tileCard, styles.soundTile, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
+            style={[styles.tileCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}
           >
             <View style={styles.tileHeader}>
               <Bell size={18} color={colors.accentYellow} />
@@ -1166,55 +1168,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
-  },
-  challengeOptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    marginBottom: spacing.sm,
-  },
-  challengeIconCol: {
-    marginRight: spacing.md,
-  },
-  challengeIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  challengeInfoCol: {
-    flex: 1,
-  },
-  challengeTitle: {
-    fontSize: typography.sizes.body,
-  },
-  challengeDesc: {
-    fontSize: typography.sizes.caption,
-    marginTop: 2,
-  },
-  targetAdjusterBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radii.md,
-    marginTop: spacing.md,
-  },
-  targetLabel: {
-    fontSize: typography.sizes.bodySmall,
-  },
-  targetControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  targetValueText: {
-    fontSize: typography.sizes.bodyLarge,
-    minWidth: 24,
-    textAlign: 'center',
   },
   deviceAudioBtn: {
     flexDirection: 'row',
