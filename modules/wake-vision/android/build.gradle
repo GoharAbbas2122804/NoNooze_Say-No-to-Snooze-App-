@@ -29,9 +29,8 @@ dependencies {
     implementation project(':expo-modules-core')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
-    // TensorFlow Lite / LiteRT Android Runtime
+    // TensorFlow Lite Android Runtime (Interpreter)
     implementation 'org.tensorflow:tensorflow-lite:2.14.0'
-    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
 
     // AndroidX & Graphics
     implementation 'androidx.core:core-ktx:1.12.0'
